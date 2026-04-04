@@ -26,7 +26,18 @@ go.work.sum
 
 # env file
 .env
+.env.local
+venv/
 
 # Editor/IDE
-# .idea/
-# .vscode/
+.lvimrc
+.nvim/
+
+# Binaries
+lembas-links
+
+# OS
+.DS_Store
+
+# Python 
+nlp-service/data/__pycache__
