@@ -40,4 +40,4 @@ lembas-links
 .DS_Store
 
 # Python 
-nlp-service/data/__pycache__
+__pycache__/

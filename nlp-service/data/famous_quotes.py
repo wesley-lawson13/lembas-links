@@ -1,3 +1,5 @@
+# Famous quotes I want to include, to be cross checked with the corpus csv file.
+
 FAMOUS_QUOTES = [
     "All we have to decide is what to do with the time that is given us.",
     "A wizard is never late, nor is he early, he arrives precisely when he means to.",

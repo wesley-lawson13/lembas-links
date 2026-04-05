@@ -20,3 +20,7 @@ seed:
 
 logs:
 	docker compose logs -f
+
+# Must be called with the virtual environment activated
+generate:
+	cd nlp-service && python generate_slugs.py

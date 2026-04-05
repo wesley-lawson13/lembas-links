@@ -5,3 +5,5 @@ spacy
 rake-nltk
 anthropic
 rapidfuzz
+dotenv
+pytest
