@@ -47,7 +47,7 @@ def write_sql(results: list):
         character = format_sql_value(r['character'])
         source = format_sql_value(r['source'])
         slug = r['slug']
-        values.append(f"  ('{quote}', '{character}', '{source}', '{slug}', FALSE)")
+        values.append(f"  ('{quote}', '{character}', '{source}', '{slug}')")
     
     lines.append(',\n'.join(values) + ';')
     
