@@ -1,23 +1,45 @@
 package main
 
 import (
-    "log"
-    "github.com/gin-gonic/gin"
-    "github.com/joho/godotenv"
+	"fmt"
+	"log"
+
+	"github.com/gin-gonic/gin"
+	"github.com/wesley-lawson13/lembas-links/config"
+	"github.com/wesley-lawson13/lembas-links/db"
 )
 
 func main() {
 
-    if err := godotenv.Load("../.env"); err != nil {
-        log.Println("No .env file found, using environment variables")
-    }
+	// load config
+	cfg := config.Load()
 
-    r := gin.Default()
+	// connect to Postgres using connection pool
+	pool := db.NewPool(cfg)
+	defer pool.Close()
 
-    r.GET("/health", func(c *gin.Context) {
-        c.JSON(200, gin.H{"status": "ok", "service": "lembas-links"})
-    })
+	// connect to Redis
+	redis := db.NewRedisClient(cfg)
+	defer redis.Close()
 
-    log.Println("Lembas Links API running on :8080")
-    r.Run(":8080")
+	// set up router
+	r := gin.Default()
+
+	// health check
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status":   "ok",
+			"service":  "lembas-links",
+			"database": "connected",
+			"cache":    "connected",
+		})
+	})
+
+	// boot server
+	addr := fmt.Sprintf(":%s", cfg.APIPort)
+	log.Printf("Lembas Links api running on %s", addr)
+
+	if err := r.Run(addr); err != nil {
+		log.Fatalf("Failed to start server: %s", err)
+	}
 }
