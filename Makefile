@@ -1,3 +1,6 @@
+include .env
+export
+
 .PHONY: run stop build test seed migrate
 
 run:

@@ -5,7 +5,8 @@ CREATE TABLE urls (
     api_key     VARCHAR(255),
     click_count INTEGER DEFAULT 0,
     expires_at  TIMESTAMP,
-    created_at  TIMESTAMP DEFAULT NOW()
+    created_at  TIMESTAMP DEFAULT NOW(),
+    is_active   BOOLEAN DEFAULT TRUE
 );
 
 CREATE INDEX idx_urls_slug ON urls(slug);

@@ -9,6 +9,8 @@ services:
       - postgres
       - redis
       - nlp-service
+    volumes:
+      - ./db:/db
 
   nlp-service:
     build: ./nlp-service
@@ -27,6 +29,7 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./db:/db
 
   redis:
     image: redis:7-alpine
