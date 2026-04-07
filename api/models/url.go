@@ -75,27 +75,27 @@ func (s *URLStore) GetURL(slug string) (*URL, error) {
 	return url, nil
 }
 
-func (s *URLStore) DeleteURL(slug string) (error) {
+func (s *URLStore) DeleteURL(slug string) error {
 
-    query := `
+	query := `
         UPDATE urls
         SET is_active = FALSE
         WHERE slug = $1
     `
 
-    result, err := s.db.Exec(query, slug)
-    if err != nil {
-        return fmt.Errorf("failed to delete url: %w", err)
-    }
+	result, err := s.db.Exec(query, slug)
+	if err != nil {
+		return fmt.Errorf("failed to delete url: %w", err)
+	}
 
-    rowsAffected, err := result.RowsAffected() 
-    if err != nil {
-        return fmt.Errorf("failed to check affected rows: %w", err)
-    }
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check affected rows: %w", err)
+	}
 
-    if rowsAffected == 0 {
-        return fmt.Errorf("slug not found: %s", slug)
-    }
+	if rowsAffected == 0 {
+		return fmt.Errorf("slug not found: %s", slug)
+	}
 
-    return nil
+	return nil
 }

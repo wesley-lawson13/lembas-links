@@ -1,8 +1,8 @@
 package models
 
 import (
-    "database/sql"
-    "fmt"
+	"database/sql"
+	"fmt"
 )
 
 func (s *URLStore) GetStats(slug string) (*URLStats, error) {
@@ -36,16 +36,16 @@ func (s *URLStore) GetStats(slug string) (*URLStats, error) {
 
 func (s *URLStore) IncrementClickCount(slug string) error {
 
-    query := `
+	query := `
         UPDATE quotes
         SET click_count = click_count + 1
         WHERE slug = $1
     `
 
-    _, err := s.db.Exec(query, slug)
-    if err != nil {
-        return fmt.Errorf("failed to update click_count: %w", err)
-    }
+	_, err := s.db.Exec(query, slug)
+	if err != nil {
+		return fmt.Errorf("failed to update click_count: %w", err)
+	}
 
-    return nil
+	return nil
 }

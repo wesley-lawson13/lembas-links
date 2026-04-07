@@ -1,8 +1,8 @@
 package models
 
 import (
-    "database/sql"
-    "time"
+	"database/sql"
+	"time"
 )
 
 type URLStore struct {
@@ -21,15 +21,14 @@ type URL struct {
 }
 
 type URLStats struct {
-    Slug       string
-    Original   string
-    ClickCount int
-    ExpiresAt  time.Time
-    CreatedAt  time.Time
-    IsActive   bool
+	Slug       string
+	Original   string
+	ClickCount int
+	ExpiresAt  time.Time
+	CreatedAt  time.Time
+	IsActive   bool
 }
 
 func NewURLStore(db *sql.DB) *URLStore {
 	return &URLStore{db: db}
 }
-
