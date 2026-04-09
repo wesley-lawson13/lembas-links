@@ -8,16 +8,8 @@ services:
     depends_on:
       - postgres
       - redis
-      - nlp-service
     volumes:
       - ./db:/db
-
-  nlp-service:
-    build: ./nlp-service
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
 
   postgres:
     image: postgres:15
