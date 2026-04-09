@@ -9,16 +9,17 @@ import (
 
 func (lh *LinkHandler) Redirect(c *gin.Context) {
 
-	// get the slug
+	// get the context
 	slug := c.Param("slug")
+	referrer := c.GetHeader("Referer")
+	userAgent := c.GetHeader("User-Agent")
+	ip := c.ClientIP()
 
 	// check redis for the slug
 	cached, err := lh.redis.Get(c, slug).Result()
 	if err == nil {
 
-		if err = lh.store.IncrementClickCount(slug); err != nil {
-			log.Printf("failed to increment click_count for slug %s: %v", slug, err)
-		}
+		lh.asyncRecordClick(slug, referrer, userAgent, ip)
 
 		c.Redirect(http.StatusFound, cached)
 		return
@@ -55,11 +56,22 @@ func (lh *LinkHandler) Redirect(c *gin.Context) {
 		log.Printf("failed to cache slug %s: %v", slug, err)
 	}
 
-	// increment click count
-	if err = lh.store.IncrementClickCount(slug); err != nil {
-		log.Printf("failed to increment click_count for slug %s: %v", slug, err)
-	}
+	lh.asyncRecordClick(slug, referrer, userAgent, ip)
 
 	// redirect
 	c.Redirect(http.StatusFound, original.Original)
+}
+
+func (lh *LinkHandler) asyncRecordClick(slug, referrer, userAgent, ipAddress string) {
+
+	go func() {
+
+		if err := lh.store.RecordClick(slug, referrer, userAgent, ipAddress); err != nil {
+			log.Printf("failed to record click for slug %s: %v", slug, err)
+		}
+
+		if err := lh.store.IncrementClickCount(slug); err != nil {
+			log.Printf("failed to increment click count for slug %s: %v", slug, err)
+		}
+	}()
 }

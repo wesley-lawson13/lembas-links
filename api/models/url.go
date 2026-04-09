@@ -26,10 +26,7 @@ func (s *URLStore) GetSlug() (string, error) {
 	return slug, nil
 }
 
-func (s *URLStore) CreateURL(slug, original, apiKey string) error {
-
-	// for now give the urls an expiration time of 30 days.
-	expiresAt := time.Now().Add(30 * 24 * time.Hour)
+func (s *URLStore) CreateURL(slug, original, apiKey string, expiresAt time.Time) error {
 
 	query := `
         INSERT INTO urls (slug, original, api_key, expires_at)

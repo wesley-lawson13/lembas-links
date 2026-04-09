@@ -1,22 +1,26 @@
 package handlers
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
 	"log"
 	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 
 	// local imports
+	"github.com/wesley-lawson13/lembas-links/config"
 	"github.com/wesley-lawson13/lembas-links/models"
 )
 
 type LinkHandler struct {
 	store *models.URLStore
 	redis *redis.Client
+	cfg   *config.Config
 }
 
-func NewLinkHandler(store *models.URLStore, redis *redis.Client) *LinkHandler {
-	return &LinkHandler{store: store, redis: redis}
+func NewLinkHandler(store *models.URLStore, redis *redis.Client, cfg *config.Config) *LinkHandler {
+	return &LinkHandler{store: store, redis: redis, cfg: cfg}
 }
 
 // POST /links function
@@ -45,8 +49,11 @@ func (lh *LinkHandler) CreateLink(c *gin.Context) {
 		return
 	}
 
+	// create the expires at value
+	expiresAt := time.Now().Add(time.Duration(lh.cfg.DefaultTTLDays) * 24 * time.Hour)
+
 	// create the url
-	err = lh.store.CreateURL(slug, body.URL, body.APIKey)
+	err = lh.store.CreateURL(slug, body.URL, body.APIKey, expiresAt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create link"})
 		return
@@ -62,7 +69,7 @@ func (lh *LinkHandler) CreateLink(c *gin.Context) {
 	// success - 201 return type
 	c.JSON(http.StatusCreated, gin.H{
 		"slug":      slug,
-		"short_url": "http://localhost:8080/" + slug,
+		"short_url": lh.cfg.BaseURL + "/" + slug,
 		"original":  body.URL,
 	})
 
