@@ -1,8 +1,12 @@
 package handlers
 
 import (
-	"github.com/gin-gonic/gin"
+	"log"
 	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/wesley-lawson13/lembas-links/models"
 )
 
 func (lh *LinkHandler) GetStats(c *gin.Context) {
@@ -17,18 +21,25 @@ func (lh *LinkHandler) GetStats(c *gin.Context) {
 		return
 	}
 
-	if !urlStats.IsActive {
-		c.JSON(http.StatusNotFound, gin.H{"error": "link not found"})
+	if !urlStats.IsActive || time.Now().After(urlStats.ExpiresAt) {
+		c.JSON(http.StatusNotFound, gin.H{"error": "url expired"})
 		return
+	}
+
+	clicks, err := lh.store.GetClicks(slug)
+	if err != nil {
+		log.Printf("failed to get clicks for slug %s: %v", slug, err)
+		clicks = []models.Click{}
 	}
 
 	// return the URL stats in JSON
 	c.JSON(http.StatusOK, gin.H{
-		"slug":        urlStats.Slug,
-		"original":    urlStats.Original,
-		"click_count": urlStats.ClickCount,
-		"created_at":  urlStats.CreatedAt,
-		"expires_at":  urlStats.ExpiresAt,
-		"is_active":   urlStats.IsActive,
+		"slug":          urlStats.Slug,
+		"original":      urlStats.Original,
+		"click_count":   urlStats.ClickCount,
+		"created_at":    urlStats.CreatedAt,
+		"expires_at":    urlStats.ExpiresAt,
+		"is_active":     urlStats.IsActive,
+		"recent_clicks": clicks,
 	})
 }

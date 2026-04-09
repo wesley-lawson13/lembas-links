@@ -20,19 +20,19 @@ func NewPool(cfg *config.Config) *sql.DB {
 	db.SetMaxIdleConns(10)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-    // connection retry ping
-    for i := range(10) {
-    
-        // connection succeeded
-        if err := db.Ping(); err == nil {
-            log.Println("Successfully connected to Postgres.")
-            return db
-        } else {
-            log.Printf("Attempt %d/10 failed: %v\n", i+1, err)
-        }
-        time.Sleep(2 * time.Second)
-    }
+	// connection retry ping
+	for i := range 10 {
 
-    log.Fatal("Could not connect to database.")
+		// connection succeeded
+		if err := db.Ping(); err == nil {
+			log.Println("Successfully connected to Postgres.")
+			return db
+		} else {
+			log.Printf("Attempt %d/10 failed: %v\n", i+1, err)
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+	log.Fatal("Could not connect to database.")
 	return nil
 }

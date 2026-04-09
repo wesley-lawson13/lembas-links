@@ -37,7 +37,7 @@ func (s *URLStore) GetStats(slug string) (*URLStats, error) {
 func (s *URLStore) IncrementClickCount(slug string) error {
 
 	query := `
-        UPDATE quotes
+        UPDATE urls
         SET click_count = click_count + 1
         WHERE slug = $1
     `

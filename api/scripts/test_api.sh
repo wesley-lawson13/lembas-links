@@ -1,9 +1,10 @@
 #!/bin/bash
 
 BASE_URL="http://localhost:8080"
+API_KEY="test-api-key-123"
 GREEN='\033[0;32m'
 RED='\033[0;31m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 pass() { echo -e "${GREEN}✓ PASS${NC}: $1"; }
 fail() { echo -e "${RED}✗ FAIL${NC}: $1"; }
@@ -27,10 +28,12 @@ echo ""
 echo "Test 2: Create a Link"
 create_response=$(curl -s -X POST $BASE_URL/links \
     -H "Content-Type: application/json" \
-    -d '{"url": "https://google.com", "api_key": "test-key"}')
+    -H "Authorization: $API_KEY" \
+    -d '{"url": "https://google.com"}')
 echo "  Response: $create_response"
 
 slug=$(echo $create_response | grep -o '"slug":"[^"]*"' | cut -d'"' -f4)
+short_url=$(echo $create_response | grep -o '"short_url":"[^"]*"' | cut -d'"' -f4)
 if [ -n "$slug" ]; then
     pass "POST /links returned slug: $slug"
 else
@@ -38,11 +41,12 @@ else
 fi
 echo ""
 
-# Test 3 — Create a Link with no URL
+# Test 3 — Create Link with Missing URL
 echo "Test 3: Create Link with Missing URL"
 response=$(curl -s -o /dev/null -w "%{http_code}" -X POST $BASE_URL/links \
     -H "Content-Type: application/json" \
-    -d '{"api_key": "test-key"}')
+    -H "Authorization: $API_KEY" \
+    -d '{}')
 if [ "$response" = "400" ]; then
     pass "POST /links with no URL returned 400"
 else
@@ -50,8 +54,33 @@ else
 fi
 echo ""
 
-# Test 4 — Redirect
-echo "Test 4: Redirect"
+# Test 4 — Missing API Key
+echo "Test 4: Missing API Key"
+response=$(curl -s -o /dev/null -w "%{http_code}" -X POST $BASE_URL/links \
+    -H "Content-Type: application/json" \
+    -d '{"url": "https://google.com"}')
+if [ "$response" = "401" ]; then
+    pass "POST /links without key returned 401"
+else
+    fail "POST /links without key returned $response (expected 401)"
+fi
+echo ""
+
+# Test 5 — Invalid API Key
+echo "Test 5: Invalid API Key"
+response=$(curl -s -o /dev/null -w "%{http_code}" -X POST $BASE_URL/links \
+    -H "Content-Type: application/json" \
+    -H "Authorization: invalid-key" \
+    -d '{"url": "https://google.com"}')
+if [ "$response" = "401" ]; then
+    pass "POST /links with invalid key returned 401"
+else
+    fail "POST /links with invalid key returned $response (expected 401)"
+fi
+echo ""
+
+# Test 6 — Redirect
+echo "Test 6: Redirect"
 response=$(curl -s -o /dev/null -w "%{http_code}" -L $BASE_URL/$slug)
 if [ "$response" = "200" ]; then
     pass "GET /$slug redirected successfully"
@@ -60,8 +89,8 @@ else
 fi
 echo ""
 
-# Test 5 — Redirect from cache (second hit)
-echo "Test 5: Redirect from Redis Cache"
+# Test 7 — Redirect from Redis Cache
+echo "Test 7: Redirect from Redis Cache"
 response=$(curl -s -o /dev/null -w "%{http_code}" -L $BASE_URL/$slug)
 if [ "$response" = "200" ]; then
     pass "GET /$slug served from cache successfully"
@@ -70,20 +99,8 @@ else
 fi
 echo ""
 
-# Test 6 — Get Stats
-echo "Test 6: Get Stats"
-stats_response=$(curl -s $BASE_URL/links/$slug/stats)
-echo "  Response: $stats_response"
-click_count=$(echo $stats_response | grep -o '"click_count":[0-9]*' | cut -d':' -f2)
-if [ -n "$click_count" ]; then
-    pass "GET /links/$slug/stats returned click_count: $click_count"
-else
-    fail "GET /links/$slug/stats did not return click_count"
-fi
-echo ""
-
-# Test 7 — Redirect nonexistent slug
-echo "Test 7: Redirect Nonexistent Slug"
+# Test 8 — Redirect Nonexistent Slug
+echo "Test 8: Redirect Nonexistent Slug"
 response=$(curl -s -o /dev/null -w "%{http_code}" $BASE_URL/this-slug-does-not-exist)
 if [ "$response" = "404" ]; then
     pass "GET /nonexistent returned 404"
@@ -92,9 +109,53 @@ else
 fi
 echo ""
 
-# Test 8 — Delete Link
-echo "Test 8: Delete Link"
-response=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE $BASE_URL/links/$slug)
+# Test 9 — Click Count
+echo "Test 9: Click Count"
+curl -s -o /dev/null -L $BASE_URL/$slug
+curl -s -o /dev/null -L $BASE_URL/$slug
+stats=$(curl -s $BASE_URL/links/$slug/stats -H "Authorization: $API_KEY")
+click_count=$(echo $stats | grep -o '"click_count":[0-9]*' | cut -d':' -f2)
+if [ -n "$click_count" ] && [ "$click_count" -gt "0" ]; then
+    pass "Click count is incrementing: $click_count"
+else
+    fail "Click count not incrementing, got: $click_count"
+fi
+echo ""
+
+# Test 10 — Recent Clicks
+echo "Test 10: Recent Clicks"
+has_clicks=$(echo $stats | grep -o '"recent_clicks":\[[^]]*\]' | grep -v '\[\]')
+if [ -n "$has_clicks" ]; then
+    pass "Recent clicks are being recorded"
+else
+    fail "Recent clicks are empty"
+fi
+echo ""
+
+# Test 11 — Get Stats
+echo "Test 11: Get Stats"
+stats_response=$(curl -s $BASE_URL/links/$slug/stats -H "Authorization: $API_KEY")
+echo "  Response: $stats_response"
+if echo $stats_response | grep -q '"click_count"'; then
+    pass "GET /links/$slug/stats returned stats"
+else
+    fail "GET /links/$slug/stats did not return stats"
+fi
+echo ""
+
+# Test 12 — Short URL Format
+echo "Test 12: Short URL Format"
+if [[ $short_url == http* ]]; then
+    pass "Short URL is properly formatted: $short_url"
+else
+    fail "Short URL format incorrect: $short_url"
+fi
+echo ""
+
+# Test 13 — Delete Link
+echo "Test 13: Delete Link"
+response=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE $BASE_URL/links/$slug \
+    -H "Authorization: $API_KEY")
 if [ "$response" = "204" ]; then
     pass "DELETE /links/$slug returned 204"
 else
@@ -102,8 +163,8 @@ else
 fi
 echo ""
 
-# Test 9 — Redirect deleted link
-echo "Test 9: Redirect Deleted Link"
+# Test 14 — Redirect Deleted Link
+echo "Test 14: Redirect Deleted Link"
 response=$(curl -s -o /dev/null -w "%{http_code}" $BASE_URL/$slug)
 if [ "$response" = "404" ]; then
     pass "GET /$slug after delete returned 404"
@@ -112,9 +173,10 @@ else
 fi
 echo ""
 
-# Test 10 — Stats for deleted link
-echo "Test 10: Stats for Deleted Link"
-response=$(curl -s -o /dev/null -w "%{http_code}" $BASE_URL/links/$slug/stats)
+# Test 15 — Stats for Deleted Link
+echo "Test 15: Stats for Deleted Link"
+response=$(curl -s -o /dev/null -w "%{http_code}" $BASE_URL/links/$slug/stats \
+    -H "Authorization: $API_KEY")
 if [ "$response" = "404" ]; then
     pass "GET /links/$slug/stats after delete returned 404"
 else

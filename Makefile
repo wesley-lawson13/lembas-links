@@ -21,6 +21,9 @@ migrate:
 seed:
 	docker compose exec postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -f /db/seeds/quotes.sql
 
+seed-dev:
+	docker compose exec postgres psql -U ${POSTGRES_USER} -d ${POSTGRES_DB} -c "INSERT INTO api_keys (key, name) VALUES ('test-api-key-123', 'dev key') ON CONFLICT DO NOTHING;"
+
 logs:
 	docker compose logs -f
 
