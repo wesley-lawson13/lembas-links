@@ -1,0 +1,200 @@
+basePath: /
+definitions:
+  handlers.ClickResponse:
+    properties:
+      clicked_at:
+        type: string
+      id:
+        type: string
+      ip_address:
+        example: 127.0.0.1
+        type: string
+      referrer:
+        example: https://google.com
+        type: string
+      slug:
+        example: one-ring-to-rule
+        type: string
+      user_agent:
+        example: Mozilla/5.0
+        type: string
+    type: object
+  handlers.CreateLinkRequest:
+    properties:
+      api_key:
+        example: my-api-key
+        type: string
+      url:
+        example: https://example.com/some/very/long/path
+        type: string
+    type: object
+  handlers.CreateLinkResponse:
+    properties:
+      original:
+        example: https://example.com/some/very/long/path
+        type: string
+      short_url:
+        example: http://localhost:8080/one-ring-to-rule
+        type: string
+      slug:
+        example: one-ring-to-rule
+        type: string
+    type: object
+  handlers.ErrorResponse:
+    properties:
+      error:
+        example: slug not found
+        type: string
+    type: object
+  handlers.StatsResponse:
+    properties:
+      click_count:
+        example: 42
+        type: integer
+      created_at:
+        type: string
+      expires_at:
+        type: string
+      is_active:
+        example: true
+        type: boolean
+      original:
+        example: https://example.com
+        type: string
+      recent_clicks:
+        items:
+          $ref: '#/definitions/handlers.ClickResponse'
+        type: array
+      slug:
+        example: one-ring-to-rule
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: A Lord of the Rings-themed URL shortener. Authenticated routes require
+    an API key passed as a Bearer token in the Authorization header.
+  title: Lembas Links API
+  version: "1.0"
+paths:
+  /{slug}:
+    get:
+      description: Resolves a slug to its original URL (Redis cache first, then DB)
+        and issues a 302 redirect. Click metadata is recorded asynchronously. Returns
+        410 if the link has expired.
+      parameters:
+      - description: URL slug
+        example: '"one-ring-to-rule"'
+        in: path
+        name: slug
+        required: true
+        type: string
+      responses:
+        "302":
+          description: Location header set to the original URL
+          schema:
+            type: string
+        "404":
+          description: slug not found or inactive
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "410":
+          description: link has expired
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Redirect to original URL
+      tags:
+      - redirect
+  /links:
+    post:
+      consumes:
+      - application/json
+      description: Selects an available LOTR-themed slug from the quote pool and maps
+        it to the provided URL. The link expires after the configured TTL (default
+        30 days).
+      parameters:
+      - description: URL to shorten
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateLinkRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.CreateLinkResponse'
+        "400":
+          description: missing or invalid request body
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+        "500":
+          description: internal error (slug pool exhausted, DB failure)
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Create a shortened link
+      tags:
+      - links
+  /links/{slug}:
+    delete:
+      description: Soft-deletes the link (sets is_active = false) and evicts it from
+        the Redis cache. The slug is not returned to the pool.
+      parameters:
+      - description: URL slug
+        example: '"one-ring-to-rule"'
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: slug not found
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Delete a shortened link
+      tags:
+      - links
+  /links/{slug}/stats:
+    get:
+      description: Returns metadata (click count, expiry, active status) and the 10
+        most recent click events for the given slug.
+      parameters:
+      - description: URL slug
+        example: '"one-ring-to-rule"'
+        in: path
+        name: slug
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.StatsResponse'
+        "404":
+          description: slug not found or expired
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: Get link statistics
+      tags:
+      - links
+securityDefinitions:
+  ApiKeyAuth:
+    description: API key prefixed with "Bearer " (e.g. "Bearer my-api-key")
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

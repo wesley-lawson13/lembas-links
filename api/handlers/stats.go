@@ -9,6 +9,16 @@ import (
 	"github.com/wesley-lawson13/lembas-links/models"
 )
 
+// GetStats godoc
+// @Summary      Get link statistics
+// @Description  Returns metadata (click count, expiry, active status) and the 10 most recent click events for the given slug.
+// @Tags         links
+// @Produce      json
+// @Param        slug path     string true "URL slug" example("one-ring-to-rule")
+// @Success      200  {object} StatsResponse
+// @Failure      404  {object} ErrorResponse "slug not found or expired"
+// @Security     ApiKeyAuth
+// @Router       /links/{slug}/stats [get]
 func (lh *LinkHandler) GetStats(c *gin.Context) {
 
 	// get the slug

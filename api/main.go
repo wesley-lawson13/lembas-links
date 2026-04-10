@@ -1,3 +1,13 @@
+// @title           Lembas Links API
+// @version         1.0
+// @description     A Lord of the Rings-themed URL shortener. Authenticated routes require an API key passed as a Bearer token in the Authorization header.
+// @host            localhost:8080
+// @BasePath        /
+//
+// @securityDefinitions.apikey ApiKeyAuth
+// @in                         header
+// @name                       Authorization
+// @description                API key prefixed with "Bearer " (e.g. "Bearer my-api-key")
 package main
 
 import (
@@ -6,6 +16,11 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+
+	// generated swagger docs (run `swag init` to create/update)
+	_ "github.com/wesley-lawson13/lembas-links/docs"
 
 	// local files
 	"github.com/wesley-lawson13/lembas-links/config"
@@ -79,6 +94,8 @@ func main() {
 			"cache":    "connected",
 		})
 	})
+
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	r.GET("/:slug", linkHandler.Redirect)
 

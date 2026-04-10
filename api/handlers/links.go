@@ -23,7 +23,18 @@ func NewLinkHandler(store *models.URLStore, redis *redis.Client, cfg *config.Con
 	return &LinkHandler{store: store, redis: redis, cfg: cfg}
 }
 
-// POST /links function
+// CreateLink godoc
+// @Summary      Create a shortened link
+// @Description  Selects an available LOTR-themed slug from the quote pool and maps it to the provided URL. The link expires after the configured TTL (default 30 days).
+// @Tags         links
+// @Accept       json
+// @Produce      json
+// @Param        body body     CreateLinkRequest true "URL to shorten"
+// @Success      201  {object} CreateLinkResponse
+// @Failure      400  {object} ErrorResponse "missing or invalid request body"
+// @Failure      500  {object} ErrorResponse "internal error (slug pool exhausted, DB failure)"
+// @Security     ApiKeyAuth
+// @Router       /links [post]
 func (lh *LinkHandler) CreateLink(c *gin.Context) {
 
 	var body struct {
@@ -75,6 +86,16 @@ func (lh *LinkHandler) CreateLink(c *gin.Context) {
 
 }
 
+// DeleteLink godoc
+// @Summary      Delete a shortened link
+// @Description  Soft-deletes the link (sets is_active = false) and evicts it from the Redis cache. The slug is not returned to the pool.
+// @Tags         links
+// @Produce      json
+// @Param        slug path     string true "URL slug" example("one-ring-to-rule")
+// @Success      204
+// @Failure      404  {object} ErrorResponse "slug not found"
+// @Security     ApiKeyAuth
+// @Router       /links/{slug} [delete]
 func (lh *LinkHandler) DeleteLink(c *gin.Context) {
 
 	// get the slug
