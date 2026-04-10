@@ -7,6 +7,15 @@ import (
 	"time"
 )
 
+// Redirect godoc
+// @Summary      Redirect to original URL
+// @Description  Resolves a slug to its original URL (Redis cache first, then DB) and issues a 302 redirect. Click metadata is recorded asynchronously. Returns 410 if the link has expired.
+// @Tags         redirect
+// @Param        slug path string true "URL slug" example("one-ring-to-rule")
+// @Success      302  {string} string "Location header set to the original URL"
+// @Failure      404  {object} ErrorResponse "slug not found or inactive"
+// @Failure      410  {object} ErrorResponse "link has expired"
+// @Router       /{slug} [get]
 func (lh *LinkHandler) Redirect(c *gin.Context) {
 
 	// get the context
