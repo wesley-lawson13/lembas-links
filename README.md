@@ -8,7 +8,7 @@ A Lord of the Rings themed URL shortener built in Go (Gin) with Redis caching, A
 
 ## Table of Contents
 - [Features](#features)
-- [Description, Project Outcomes, and Future Plans](#description)
+- [Description, Project Outcomes, and Future Plans](#description-project-outcomes-and-future-plans)
 - [How it Works](#how-it-works)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
