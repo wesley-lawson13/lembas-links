@@ -1,5 +1,3 @@
-# TEST Functions for nlp_preprocess -- Eventually needs to be updated to be able to test
-
 import pandas as pd
 from rapidfuzz import fuzz
 
@@ -37,8 +35,8 @@ def test_generate_processed_quotes():
     # Test 6 — check pool size is reasonable
     assert len(results) <= 400, f"Pool too large: {len(results)} quotes"
     print(f"✓ Pool size is within expected range")
-    
-     # Print a sample of 5 quotes to eyeball
+
+    # Print a sample of 5 quotes to eyeball
     print("\n--- Sample Quotes ---")
     for q in results[:5]:
         label = 'FAMOUS' if q['famous'] else f"score:{q['score']}"
@@ -46,8 +44,6 @@ def test_generate_processed_quotes():
         print(f"  keywords: {q['keywords'][:5]}")
         print(f"  entities: {q['entities']}")
         print()
-
-    return
 
 def debug_famous_quotes(file_path='./data/lotr_scripts.csv'):
     df = pd.read_csv(file_path)
