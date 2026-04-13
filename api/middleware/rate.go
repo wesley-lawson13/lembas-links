@@ -14,12 +14,14 @@ import (
 
 func RateLimit(r *redis.Client, cfg *config.Config) gin.HandlerFunc {
 
+	window := time.Duration(cfg.RateLimitWindow) * time.Second
+
 	return func(c *gin.Context) {
 
 		ip := c.ClientIP()
 		ipKey := fmt.Sprintf("rate:ip:%s", ip)
 
-		ipCount, err := parseRate(c, r, ipKey)
+		ipCount, err := parseRate(c, r, ipKey, window)
 		if err != nil {
 			log.Printf("rate limiting failed on IP key %s: %v", ipKey, err)
 			c.Next()
@@ -40,7 +42,7 @@ func RateLimit(r *redis.Client, cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		apiKeyCount, err := parseRate(c, r, apiKey)
+		apiKeyCount, err := parseRate(c, r, apiKey, window)
 		if err != nil {
 			log.Printf("rate limiting failed on API key: %v", err)
 			c.Next()
@@ -57,11 +59,11 @@ func RateLimit(r *redis.Client, cfg *config.Config) gin.HandlerFunc {
 	}
 }
 
-func parseRate(c *gin.Context, r *redis.Client, key string) (int, error) {
+func parseRate(c *gin.Context, r *redis.Client, key string, window time.Duration) (int, error) {
 
 	_, err := r.Get(c, key).Int()
 	if err == redis.Nil {
-		r.Set(c, key, 1, time.Minute)
+		r.Set(c, key, 1, window)
 		return 1, nil
 	} else if err != nil {
 		return -1, fmt.Errorf("failed to get rate: %w", err)

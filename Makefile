@@ -1,7 +1,7 @@
-include .env
+-include .env
 export
 
-.PHONY: run stop build test seed migrate
+.PHONY: run stop build test seed seed-dev migrate logs generate
 
 run:
 	docker compose up --build

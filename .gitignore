@@ -39,5 +39,8 @@ lembas-links
 # OS
 .DS_Store
 
-# Python 
+# Python
 __pycache__/
+
+# Logs
+*.log
