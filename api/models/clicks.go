@@ -29,16 +29,16 @@ func (s *URLStore) RecordClick(slug, referrer, userAgent, ipAddress string) erro
 	return nil
 }
 
-func (s *URLStore) GetClicks(slug string) ([]Click, error) {
+func (s *URLStore) GetClicks(slug string, limit int) ([]Click, error) {
 
 	query := `
         SELECT id, slug, clicked_at, referrer, user_agent, ip_address
         FROM clicks
         WHERE slug = $1
         ORDER BY clicked_at DESC
-        LIMIT 10
+        LIMIT $2
     `
-	rows, err := s.db.Query(query, slug)
+	rows, err := s.db.Query(query, slug, limit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get clicks: %w", err)
 	}

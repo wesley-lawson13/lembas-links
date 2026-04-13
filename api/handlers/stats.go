@@ -36,7 +36,7 @@ func (lh *LinkHandler) GetStats(c *gin.Context) {
 		return
 	}
 
-	clicks, err := lh.store.GetClicks(slug)
+	clicks, err := lh.store.GetClicks(slug, lh.cfg.RecentClicksLimit)
 	if err != nil {
 		log.Printf("failed to get clicks for slug %s: %v", slug, err)
 		clicks = []models.Click{}
