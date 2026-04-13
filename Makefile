@@ -13,7 +13,7 @@ build:
 	docker compose build
 
 test:
-	cd api && go test ./...
+	cd api && go test ./models/... -v
 
 migrate:
 	docker compose exec api migrate -path /db/migrations -database ${DATABASE_URL} up

@@ -1,100 +1,63 @@
-# TEST Functions for slug_generator.py -- Eventually needs to be updated to be able to test
-
 import re
-from slug_generator import generate_slugs, sanitize_slug, generated_slugs
+import pytest
+from unittest.mock import patch
+from slug_generator import sanitize_slug, generate_slugs, generated_slugs
 
-def test_slug_generator():
 
-    # Sample quote data mimicking what preprocess.py outputs
-    test_quotes = [
-        {
-            "quote": "You shall not pass!",
-            "character": "GANDALF",
-            "keywords": ["pass"],
-            "entities": ["gandalf"],
-            "source": "The Fellowship of the Ring",
-            "famous": True
-        },
-        {
-            "quote": "One does not simply walk into Mordor.",
-            "character": "BOROMIR",
-            "keywords": ["mordor", "simply", "walk"],
-            "entities": ["boromir", "mordor"],
-            "source": "The Fellowship of the Ring",
-            "famous": True
-        },
-        {
-            "quote": "Even the smallest person can change the course of the future.",
-            "character": "GALADRIEL",
-            "keywords": ["change", "course", "future", "person", "small"],
-            "entities": ["galadriel"],
-            "source": "The Fellowship of the Ring",
-            "famous": True
-        }
-    ]
-
-    print("--- Testing Slug Generator ---\n")
-
-    # Test 1 — basic slug generation
-    print("Test 1: Basic slug generation")
-    for quote_data in test_quotes:
-        slugs = generate_slugs(quote_data)
-        print(f"  {quote_data['character']}: {slugs}")
-    print()
-
-    # Test 2 — sanitize_slug edge cases
-    print("Test 2: Sanitize slug edge cases")
-    edge_cases = [
-        ("  Gandalf--Shadow! ", "gandalf-shadow"),
-        ("frodo's burden", "frodos-burden"),
-        ("one-ring-to-rule", "one-ring-to-rule"),
-        ("MORDOR darkness", "mordor-darkness"),
-        ("---leading-hyphens---", "leading-hyphens"),
-    ]
-    all_passed = True
-    for input_slug, expected in edge_cases:
-        result = sanitize_slug(input_slug)
-        status = "✓" if result == expected else "✗"
-        if result != expected:
-            all_passed = False
-        print(f"  {status} sanitize_slug('{input_slug}') → '{result}' (expected: '{expected}')")
-    print(f"  {'All sanitize tests passed!' if all_passed else 'Some tests failed'}")
-    print()
-
-    # Test 3 — collision handling
-    print("Test 3: Collision handling")
-    generated_slugs.clear()  # Reset set for clean test
-    
-    collision_quote = {
-        "quote": "My precious.",
-        "character": "GOLLUM",
-        "keywords": ["precious"],
-        "entities": ["gollum"],
-        "source": "The Two Towers",
-        "famous": True
-    }
-    
-    # Generate same quote twice to force collision
-    slug1 = generate_slugs(collision_quote)
-    generated_slugs.update(slug1)  # Manually add to force collision
-    slug2 = generate_slugs(collision_quote)
-    
-    are_different = slug1 != slug2
-    print(f"  {'✓' if are_different else '✗'} Collision handled: '{slug1}' vs '{slug2}'")
-    print()
-
-    # Test 4 — verify all slugs are URL safe
-    print("Test 4: URL safety check")
+@pytest.fixture(autouse=True)
+def reset_generated_slugs():
+    """Clear the global slug set before and after each test for isolation."""
     generated_slugs.clear()
-    all_safe = True
-    for quote_data in test_quotes:
-        slugs = generate_slugs(quote_data)
-        for slug in slugs:
-            is_safe = bool(re.match(r'^[a-z0-9-]+$', slug))
-            if not is_safe:
-                all_safe = False
-            print(f"  {'✓' if is_safe else '✗'} '{slug}' is {'safe' if is_safe else 'NOT safe'}")
-    print(f"  {'All slugs are URL safe!' if all_safe else 'Some slugs are not URL safe!'}")
+    yield
+    generated_slugs.clear()
 
-if __name__ == "__main__":
-    test_slug_generator()
+
+# --- sanitize_slug ---
+
+def test_sanitize_slug_trims_and_lowercases():
+    assert sanitize_slug("  Gandalf--Shadow! ") == "gandalf-shadow"
+
+def test_sanitize_slug_removes_special_chars():
+    assert sanitize_slug("frodo's burden") == "frodos-burden"
+
+def test_sanitize_slug_preserves_valid_hyphens():
+    assert sanitize_slug("one-ring-to-rule") == "one-ring-to-rule"
+
+def test_sanitize_slug_lowercases_and_joins_spaces():
+    assert sanitize_slug("MORDOR darkness") == "mordor-darkness"
+
+def test_sanitize_slug_strips_leading_and_trailing_hyphens():
+    assert sanitize_slug("---leading-hyphens---") == "leading-hyphens"
+
+
+# --- generate_slugs ---
+
+_SAMPLE_QUOTE = {
+    "quote": "My precious.",
+    "character": "GOLLUM",
+    "keywords": ["precious"],
+    "entities": ["gollum"],
+    "source": "The Two Towers",
+    "famous": True,
+}
+
+
+def test_generate_slugs_returns_nonempty_list():
+    with patch("slug_generator.generate_slug_with_claude", return_value=["my-precious"]):
+        slugs = generate_slugs(_SAMPLE_QUOTE)
+    assert len(slugs) > 0
+
+
+def test_generate_slugs_are_url_safe():
+    with patch("slug_generator.generate_slug_with_claude", return_value=["my-precious"]):
+        slugs = generate_slugs(_SAMPLE_QUOTE)
+    for slug in slugs:
+        assert re.match(r"^[a-z0-9-]+$", slug), f"'{slug}' is not URL-safe"
+
+
+def test_generate_slugs_collision_produces_unique_slug():
+    with patch("slug_generator.generate_slug_with_claude", return_value=["my-precious"]):
+        slug1 = generate_slugs(_SAMPLE_QUOTE)
+        # Second call sees slug1 already in generated_slugs, so must return something different
+        slug2 = generate_slugs(_SAMPLE_QUOTE)
+    assert slug1 != slug2, f"Expected different slugs on collision, got {slug1!r} both times"
