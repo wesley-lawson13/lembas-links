@@ -2,7 +2,7 @@
 
 A Lord of the Rings themed URL shortener built in Go (Gin) with Redis caching, API key authentication middleware, and rate limiting.
 
-**Live Demo:** *(coming soon)*
+**Live Documentation:** [Lembas Links OpenAPI](https://lembas-links-production.up.railway.app/swagger/index.html)
 
 ---
 
@@ -10,6 +10,7 @@ A Lord of the Rings themed URL shortener built in Go (Gin) with Redis caching, A
 - [Features](#features)
 - [Description, Project Outcomes, and Future Plans](#description-project-outcomes-and-future-plans)
 - [How it Works](#how-it-works)
+- [Usage](#usage)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
 - [API Reference](#api-reference)
@@ -49,6 +50,52 @@ Incoming requests hit the Go API which is built with Gin. The API first checks R
 The NLP preprocessing pipeline is a separate tool that runs once to generate the slug pool. It reads a [LOTR movie script CSV](https://www.kaggle.com/datasets/paultimothymooney/lord-of-the-rings-data?select=lotr_scripts.csv), processes quotes through spaCy for keyword extraction and entity recognition, then calls the Claude Haiku API to generate slugs. The output is a SQL seed file that gets loaded into Postgres at setup time.
 
 ---
+
+## Usage
+
+### Create a Short Link
+
+```bash
+curl -X POST https://your-project.up.railway.app/links \
+    -H "Content-Type: application/json" \
+    -H "Authorization: your-api-key" \
+    -d '{"url": "https://your-long-url.com"}'
+```
+
+Response:
+```json
+{
+    "url": "https://your-project.up.railway.app/gandalf-shadow-flame",
+    "original": "https://your-long-url.com",
+    "slug": "gandalf-shadow-flame",
+}
+```
+
+### Follow a Short Link
+
+Visit the short URL in your browser or via curl:
+
+```bash
+curl -L https://your-project.up.railway.app/gandalf-shadow-flame
+```
+
+### Check Link Stats
+
+```bash
+curl https://your-project.up.railway.app/links/gandalf-shadow-flame/stats \
+    -H "Authorization: your-api-key"
+```
+
+### Delete a Link
+
+```bash
+curl -X DELETE https://your-project.up.railway.app/links/gandalf-shadow-flame \
+    -H "Authorization: your-api-key"
+```
+
+### Getting an API Key
+
+To get an API key for the live demo contact [wesleylawson13@gmail.com](mailto:wesleylawson13@gmail.com).
 
 ## Tech Stack
 
