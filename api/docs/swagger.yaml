@@ -69,7 +69,7 @@ definitions:
         example: one-ring-to-rule
         type: string
     type: object
-host: localhost:8080
+host: lembas-links-production.up.railway.app
 info:
   contact: {}
   description: A Lord of the Rings-themed URL shortener. Authenticated routes require
