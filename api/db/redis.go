@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"log"
-	"strings"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/wesley-lawson13/lembas-links/config"
@@ -11,10 +10,11 @@ import (
 
 func NewRedisClient(cfg *config.Config) *redis.Client {
 
-	RedisUrl := strings.TrimPrefix(cfg.RedisURL, "redis://")
-	client := redis.NewClient(&redis.Options{
-		Addr: RedisUrl,
-	})
+	opts, err := redis.ParseURL(cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("Failed to parse Redis URL: %v\n", err)
+	}
+	client := redis.NewClient(opts)
 
 	if err := client.Ping(context.Background()).Err(); err != nil {
 		log.Fatalf("Failed to connect to Redis: %v\n", err)
