@@ -14,6 +14,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -57,6 +58,29 @@ func runMigrations(pool *sql.DB) {
 	log.Println("Migrations ran successfully")
 }
 
+func seedQuotesIfEmpty(pool *sql.DB) {
+	var count int
+	if err := pool.QueryRow("SELECT COUNT(*) FROM quotes").Scan(&count); err != nil {
+		log.Printf("Seed check failed: %v", err)
+		return
+	}
+	if count > 0 {
+		log.Println("Quotes table already seeded, skipping")
+		return
+	}
+
+	sqlBytes, err := os.ReadFile("/db/seeds/quotes.sql")
+	if err != nil {
+		log.Printf("Failed to read quotes seed file: %v", err)
+		return
+	}
+	if _, err := pool.Exec(string(sqlBytes)); err != nil {
+		log.Printf("Failed to seed quotes: %v", err)
+		return
+	}
+	log.Println("Quotes table seeded successfully")
+}
+
 func main() {
 
 	// load config
@@ -68,6 +92,9 @@ func main() {
 
 	// run migrations
 	runMigrations(pool)
+
+	// seed quotes table if empty (first deploy)
+	seedQuotesIfEmpty(pool)
 
 	// connect to Redis
 	redis := db.NewRedisClient(cfg)

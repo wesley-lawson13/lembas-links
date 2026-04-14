@@ -28,7 +28,7 @@ func Load() *Config {
 	cfg := Config{
 		DatabaseURL:       os.Getenv("DATABASE_URL"),
 		RedisURL:          os.Getenv("REDIS_URL"),
-		APIPort:           os.Getenv("API_PORT"),
+		APIPort:           getEnvWithFallback("API_PORT", "PORT", "8080"),
 		APISecret:         os.Getenv("API_SECRET_KEY"),
 		BaseURL:           os.Getenv("BASE_URL"),
 		IPRateLimit:       getEnvInt("IP_RATE_LIMIT", 60),
@@ -47,6 +47,16 @@ func Load() *Config {
 	}
 
 	return &cfg
+}
+
+func getEnvWithFallback(keys ...string) string {
+	// All but the last element are env var keys; last element is the default value.
+	for _, key := range keys[:len(keys)-1] {
+		if val := os.Getenv(key); val != "" {
+			return val
+		}
+	}
+	return keys[len(keys)-1]
 }
 
 func getEnvInt(key string, defaultVal int) int {
