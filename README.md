@@ -37,7 +37,7 @@ As a huge Lord of the Rings fan, I've always been looking for ways to incorporat
 
 In building this Lembas Links, I gained hands-on, end-to-end experience designing and implementing a REST API in Go using Gin, a relevant backend framework. This experience really helped me understand how each component of the backend architecture interacts with one another, such as how authentication middleware, rate limiting, and the models layer interact, deepening my understanding of backend security and clean API design. Additionally, I gained valuable insight into important caching principles and practices through my use of Redis and how such technologies can improve performance. Lastly, I also developed practical skills in containerization with Docker Compose, building upon my previous experience using the technology.
 
-Currently, I'm working on creating documentation for the API endpoints using Go's OpenAPI library. Next, I plan on deploying the API on Railway, before building a frontend in React.js.
+In the future, I plan on developing a simple frontend in React such that it is easier to use for those who want to try it!
 
 Thanks for checking out my Lembas Links repo! If you have any questions please feel free to get in touch.
 
@@ -176,9 +176,9 @@ Create a new Lord of the Rings link.
 **Response `201`:**
 ```json
 {
+    "url": "http://localhost:8080/gandalf-shadow-flame",
+    "original": "https://your-long-url.com",
     "slug": "gandalf-shadow-flame",
-    "short_url": "http://localhost:8080/gandalf-shadow-flame",
-    "original": "https://your-long-url.com"
 }
 ```
 
@@ -274,7 +274,7 @@ cp nlp-service/data/quotes.sql db/seeds/quotes.sql
 
 ## Deployment
 
-This project will be deployed to Railway sometime in the near future.
+This project is deployed on Railway. [Lembas Links](https://lembas-links-production.up.railway.app/swagger/index.html)
 
 ### Environment Variables
 
