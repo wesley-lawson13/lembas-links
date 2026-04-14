@@ -1,7 +1,7 @@
 // @title           Lembas Links API
 // @version         1.0
 // @description     A Lord of the Rings-themed URL shortener. Authenticated routes require an API key passed as a Bearer token in the Authorization header.
-// @host            localhost:8080
+// @host            lembas-links-production.up.railway.app
 // @BasePath        /
 //
 // @securityDefinitions.apikey ApiKeyAuth
