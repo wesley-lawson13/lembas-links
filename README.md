@@ -2,7 +2,7 @@
 
 A Lord of the Rings themed URL shortener built in Go (Gin) with Redis caching, API key authentication middleware, and rate limiting.
 
-**Live Documentation:** [Lembas Links OpenAPI](https://lembas-links-production.up.railway.app/swagger/index.html)
+> **Note:** The Railway deployment is no longer active as the free trial has ended. See [Getting Started](#getting-started) to run the project locally.
 
 ---
 
@@ -53,21 +53,23 @@ The NLP preprocessing pipeline is a separate tool that runs once to generate the
 
 ## Usage
 
+First, follow the [Getting Started](#getting-started) steps to get the services running locally. All examples below assume the API is running at `http://localhost:8080` and use the dev API key inserted by `make seed-dev` (`dev-api-key-12345`).
+
 ### Create a Short Link
 
 ```bash
-curl -X POST https://your-project.up.railway.app/links \
+curl -X POST http://localhost:8080/links \
     -H "Content-Type: application/json" \
-    -H "Authorization: your-api-key" \
+    -H "Authorization: dev-api-key-12345" \
     -d '{"url": "https://your-long-url.com"}'
 ```
 
 Response:
 ```json
 {
-    "url": "https://your-project.up.railway.app/gandalf-shadow-flame",
+    "url": "http://localhost:8080/gandalf-shadow-flame",
     "original": "https://your-long-url.com",
-    "slug": "gandalf-shadow-flame",
+    "slug": "gandalf-shadow-flame"
 }
 ```
 
@@ -76,26 +78,26 @@ Response:
 Visit the short URL in your browser or via curl:
 
 ```bash
-curl -L https://your-project.up.railway.app/gandalf-shadow-flame
+curl -L http://localhost:8080/gandalf-shadow-flame
 ```
 
 ### Check Link Stats
 
 ```bash
-curl https://your-project.up.railway.app/links/gandalf-shadow-flame/stats \
-    -H "Authorization: your-api-key"
+curl http://localhost:8080/links/gandalf-shadow-flame/stats \
+    -H "Authorization: dev-api-key-12345"
 ```
 
 ### Delete a Link
 
 ```bash
-curl -X DELETE https://your-project.up.railway.app/links/gandalf-shadow-flame \
-    -H "Authorization: your-api-key"
+curl -X DELETE http://localhost:8080/links/gandalf-shadow-flame \
+    -H "Authorization: dev-api-key-12345"
 ```
 
 ### Getting an API Key
 
-To get an API key for the live demo contact [wesleylawson13@gmail.com](mailto:wesleylawson13@gmail.com).
+Run `make seed-dev` after starting the services — it inserts a test key (`dev-api-key-12345`) for local development.
 
 ## Tech Stack
 
@@ -274,7 +276,7 @@ cp nlp-service/data/quotes.sql db/seeds/quotes.sql
 
 ## Deployment
 
-This project is deployed on Railway. [Lembas Links](https://lembas-links-production.up.railway.app/swagger/index.html)
+This project was previously deployed on Railway. The deployment is no longer active as the free trial has ended. See [Getting Started](#getting-started) to run locally.
 
 ### Environment Variables
 
