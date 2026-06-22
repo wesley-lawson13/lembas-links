@@ -53,14 +53,14 @@ The NLP preprocessing pipeline is a separate tool that runs once to generate the
 
 ## Usage
 
-First, follow the [Getting Started](#getting-started) steps to get the services running locally. All examples below assume the API is running at `http://localhost:8080` and use the dev API key inserted by `make seed-dev` (`dev-api-key-12345`).
+First, follow the [Getting Started](#getting-started) steps to get the services running locally. All examples below assume the API is running at `http://localhost:8080` and use the dev API key inserted by `make seed-dev` (`test-api-key-123`).
 
 ### Create a Short Link
 
 ```bash
 curl -X POST http://localhost:8080/links \
     -H "Content-Type: application/json" \
-    -H "Authorization: dev-api-key-12345" \
+    -H "Authorization: test-api-key-123" \
     -d '{"url": "https://your-long-url.com"}'
 ```
 
@@ -85,19 +85,19 @@ curl -L http://localhost:8080/gandalf-shadow-flame
 
 ```bash
 curl http://localhost:8080/links/gandalf-shadow-flame/stats \
-    -H "Authorization: dev-api-key-12345"
+    -H "Authorization: test-api-key-123"
 ```
 
 ### Delete a Link
 
 ```bash
 curl -X DELETE http://localhost:8080/links/gandalf-shadow-flame \
-    -H "Authorization: dev-api-key-12345"
+    -H "Authorization: test-api-key-123"
 ```
 
 ### Getting an API Key
 
-Run `make seed-dev` after starting the services — it inserts a test key (`dev-api-key-12345`) for local development.
+Run `make seed-dev` after starting the services — it inserts a test key (`test-api-key-123`) for local development.
 
 ## Tech Stack
 
