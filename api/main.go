@@ -11,10 +11,8 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
@@ -31,55 +29,9 @@ import (
 	"github.com/wesley-lawson13/lembas-links/models"
 
 	// for migrations
-	"github.com/golang-migrate/migrate/v4"
-	"github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/wesley-lawson13/lembas-links/migrate"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
-
-func runMigrations(pool *sql.DB) {
-	driver, err := postgres.WithInstance(pool, &postgres.Config{})
-	if err != nil {
-		log.Fatalf("Failed to create migrate driver: %v", err)
-	}
-
-	m, err := migrate.NewWithDatabaseInstance(
-		"file:///db/migrations",
-		"postgres",
-		driver,
-	)
-	if err != nil {
-		log.Fatalf("Failed to create migrate instance: %v", err)
-	}
-
-	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		log.Fatalf("Failed to run migrations: %v", err)
-	}
-
-	log.Println("Migrations ran successfully")
-}
-
-func seedQuotesIfEmpty(pool *sql.DB) {
-	var count int
-	if err := pool.QueryRow("SELECT COUNT(*) FROM quotes").Scan(&count); err != nil {
-		log.Printf("Seed check failed: %v", err)
-		return
-	}
-	if count > 0 {
-		log.Println("Quotes table already seeded, skipping")
-		return
-	}
-
-	sqlBytes, err := os.ReadFile("/db/seeds/quotes.sql")
-	if err != nil {
-		log.Printf("Failed to read quotes seed file: %v", err)
-		return
-	}
-	if _, err := pool.Exec(string(sqlBytes)); err != nil {
-		log.Printf("Failed to seed quotes: %v", err)
-		return
-	}
-	log.Println("Quotes table seeded successfully")
-}
 
 func main() {
 
@@ -91,10 +43,10 @@ func main() {
 	defer pool.Close()
 
 	// run migrations
-	runMigrations(pool)
+	migrate.RunMigrations(pool)
 
 	// seed quotes table if empty (first deploy)
-	seedQuotesIfEmpty(pool)
+	migrate.SeedQuotesIfEmpty(pool)
 
 	// connect to Redis
 	redis := db.NewRedisClient(cfg)
