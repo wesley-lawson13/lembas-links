@@ -37,7 +37,7 @@ func RateLimit(r *redis.Client, cfg *config.Config) gin.HandlerFunc {
 		authKey := c.GetHeader("Authorization")
 		apiKey := fmt.Sprintf("rate:key:%s", authKey)
 
-		if apiKey == "" {
+		if authKey == "" {
 			c.Next()
 			return
 		}

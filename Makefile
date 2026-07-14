@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: run stop build test seed seed-dev migrate logs generate
+.PHONY: run stop build test test-rate seed seed-dev migrate logs generate
 
 run:
 	docker compose up --build
@@ -14,6 +14,9 @@ build:
 
 test:
 	cd api && go test ./models/... -v
+
+test-rate:
+	cd api && go test ./middleware/... -v
 
 migrate:
 	docker compose exec api migrate -path /db/migrations -database ${DATABASE_URL} up

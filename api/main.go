@@ -76,11 +76,11 @@ func main() {
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	r.GET("/:slug", linkHandler.Redirect)
+	r.GET("/:slug", middleware.RateLimit(redis, cfg), linkHandler.Redirect)
 
 	// protected routes
 	protected := r.Group("/links")
-	protected.Use(middleware.APIKeyAuth(store))
+	protected.Use(middleware.RateLimit(redis, cfg), middleware.APIKeyAuth(store))
 	{
 		protected.POST("", linkHandler.CreateLink)
 		protected.DELETE("/:slug", linkHandler.DeleteLink)
