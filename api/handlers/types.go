@@ -36,6 +36,13 @@ type ClickResponse struct {
 	IPAddress string    `json:"ip_address" example:"127.0.0.1"`
 }
 
+// SessionResponse is the response body returned when a new anonymous
+// session key is minted.
+type SessionResponse struct {
+	APIKey    string    `json:"api_key"    example:"a1b2c3d4..."`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
 // ErrorResponse is a generic error envelope.
 type ErrorResponse struct {
 	Error string `json:"error" example:"slug not found"`

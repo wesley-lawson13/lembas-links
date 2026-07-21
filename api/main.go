@@ -58,8 +58,9 @@ func main() {
 	// set up router
 	r := gin.Default()
 
-	// get the link handler for routes
+	// get the link and session handlers for routes
 	linkHandler := handlers.NewLinkHandler(store, redis, cfg)
+	sessionHandler := handlers.NewSessionHandler(store, cfg)
 
 	// ---ROUTES---
 
@@ -75,6 +76,8 @@ func main() {
 	})
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	r.POST("/session", middleware.SessionRateLimit(redis, cfg), sessionHandler.CreateSession)
 
 	r.GET("/:slug", middleware.RateLimit(redis, cfg), linkHandler.Redirect)
 

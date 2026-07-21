@@ -59,6 +59,36 @@ func RateLimit(r *redis.Client, cfg *config.Config) gin.HandlerFunc {
 	}
 }
 
+// SessionRateLimit is the sole rate limiter on POST /session (not stacked
+// with RateLimit). It's IP-only and deliberately stricter than the general
+// per-IP limit: minting a key is free and hands out a fresh per-key budget,
+// so mint-rate is what actually bounds abuse now that keys are self-serve.
+func SessionRateLimit(r *redis.Client, cfg *config.Config) gin.HandlerFunc {
+
+	window := time.Duration(cfg.SessionRateLimitWindow) * time.Second
+
+	return func(c *gin.Context) {
+
+		ip := c.ClientIP()
+		key := fmt.Sprintf("rate:session:%s", ip)
+
+		count, err := parseRate(c, r, key, window)
+		if err != nil {
+			log.Printf("session rate limiting failed on key %s: %v", key, err)
+			c.Next()
+			return
+		}
+
+		if count > cfg.SessionRateLimit {
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": "rate limit exceeded"})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}
+
 func parseRate(c *gin.Context, r *redis.Client, key string, window time.Duration) (int, error) {
 
 	_, err := r.Get(c, key).Int()

@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 type Config struct {
@@ -14,10 +15,15 @@ type Config struct {
 	BaseURL     string
 
 	// middleware vars
-	IPRateLimit      int
-	KeyRateLimit     int
-	RateLimitWindow  int // in seconds
-	DefaultTTLDays   int
+	IPRateLimit            int
+	KeyRateLimit           int
+	RateLimitWindow        int // in seconds
+	DefaultTTLDays         int
+	SessionRateLimit       int
+	SessionRateLimitWindow int // in seconds
+
+	// CORS
+	CORSAllowedOrigins []string
 
 	// analytics
 	RecentClicksLimit int
@@ -26,16 +32,19 @@ type Config struct {
 func Load() *Config {
 
 	cfg := Config{
-		DatabaseURL:       os.Getenv("DATABASE_URL"),
-		RedisURL:          os.Getenv("REDIS_URL"),
-		APIPort:           getEnvWithFallback("API_PORT", "PORT", "8080"),
-		APISecret:         os.Getenv("API_SECRET_KEY"),
-		BaseURL:           os.Getenv("BASE_URL"),
-		IPRateLimit:       getEnvInt("IP_RATE_LIMIT", 60),
-		KeyRateLimit:      getEnvInt("KEY_RATE_LIMIT", 120),
-		RateLimitWindow:   getEnvInt("RATE_LIMIT_WINDOW", 60),
-		DefaultTTLDays:    getEnvInt("DEFAULT_TTL_DAYS", 30),
-		RecentClicksLimit: getEnvInt("RECENT_CLICKS_LIMIT", 10),
+		DatabaseURL:            os.Getenv("DATABASE_URL"),
+		RedisURL:               os.Getenv("REDIS_URL"),
+		APIPort:                getEnvWithFallback("API_PORT", "PORT", "8080"),
+		APISecret:              os.Getenv("API_SECRET_KEY"),
+		BaseURL:                os.Getenv("BASE_URL"),
+		IPRateLimit:            getEnvInt("IP_RATE_LIMIT", 60),
+		KeyRateLimit:           getEnvInt("KEY_RATE_LIMIT", 120),
+		RateLimitWindow:        getEnvInt("RATE_LIMIT_WINDOW", 60),
+		DefaultTTLDays:         getEnvInt("DEFAULT_TTL_DAYS", 30),
+		SessionRateLimit:       getEnvInt("SESSION_RATE_LIMIT", 5),
+		SessionRateLimitWindow: getEnvInt("SESSION_RATE_LIMIT_WINDOW", 3600),
+		CORSAllowedOrigins:     getEnvList("CORS_ALLOWED_ORIGINS"),
+		RecentClicksLimit:      getEnvInt("RECENT_CLICKS_LIMIT", 10),
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -57,6 +66,24 @@ func getEnvWithFallback(keys ...string) string {
 		}
 	}
 	return keys[len(keys)-1]
+}
+
+func getEnvList(key string) []string {
+
+	val := os.Getenv(key)
+	if val == "" {
+		return nil
+	}
+
+	parts := strings.Split(val, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if trimmed := strings.TrimSpace(p); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+
+	return out
 }
 
 func getEnvInt(key string, defaultVal int) int {
