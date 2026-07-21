@@ -37,7 +37,7 @@ As a huge Lord of the Rings fan, I've always been looking for ways to incorporat
 
 In building this Lembas Links, I gained hands-on, end-to-end experience designing and implementing a REST API in Go using Gin, a relevant backend framework. This experience really helped me understand how each component of the backend architecture interacts with one another, such as how authentication middleware, rate limiting, and the models layer interact, deepening my understanding of backend security and clean API design. Additionally, I gained valuable insight into important caching principles and practices through my use of Redis and how such technologies can improve performance. Lastly, I also developed practical skills in containerization with Docker Compose, building upon my previous experience using the technology.
 
-In the future, I plan on developing a simple frontend in React such that it is easier to use for those who want to try it!
+Currently, I'm building a lightweight React frontend for Lembas Links so it's easier to try out without having to hit the API directly. Once that's done, my next goal is learning AWS by redeploying the project there: first a manual EC2 deployment, then codifying that infrastructure with Terraform, then automating deployments with GitHub Actions, and finally adding observability once there's real traffic worth monitoring.
 
 Thanks for checking out my Lembas Links repo! If you have any questions please feel free to get in touch.
 
@@ -180,7 +180,7 @@ Create a new Lord of the Rings link.
 {
     "url": "http://localhost:8080/gandalf-shadow-flame",
     "original": "https://your-long-url.com",
-    "slug": "gandalf-shadow-flame",
+    "slug": "gandalf-shadow-flame"
 }
 ```
 
@@ -282,14 +282,22 @@ This project was previously deployed on Railway. The deployment is no longer act
 
 | Variable | Description | Default |
 |---|---|---|
-| `DATABASE_URL` | Postgres connection string | required |
+| `POSTGRES_USER` | Postgres username (used by the `postgres` container and `make seed`/`seed-dev`/`migrate`) | required |
+| `POSTGRES_PASSWORD` | Postgres password | required |
+| `POSTGRES_DB` | Postgres database name | required |
+| `DATABASE_URL` | Postgres connection string used by the API | required |
 | `REDIS_URL` | Redis connection string | required |
 | `API_PORT` | Port to run the API on | `8080` |
 | `API_KEY_SECRET` | Secret for API key signing | required |
 | `BASE_URL` | Base URL for short links | required |
 | `IP_RATE_LIMIT` | Requests per minute per IP | `60` |
 | `KEY_RATE_LIMIT` | Requests per minute per API key | `120` |
+| `RATE_LIMIT_WINDOW` | Rate limit window, in seconds | `60` |
 | `DEFAULT_TTL_DAYS` | Default link expiry in days | `30` |
+| `RECENT_CLICKS_LIMIT` | Number of recent clicks returned by the stats endpoint | `10` |
+| `TEST_DATABASE_URL` | Postgres connection string used by `go test` for integration tests; tests are skipped if unset | optional |
+
+> **Note:** `.env.example` also defines `NLP_SERVICE_URL`, but no service currently reads it — it's not required to run the project and can be left blank.
 
 Generate a secure `API_KEY_SECRET`:
 ```bash
