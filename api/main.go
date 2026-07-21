@@ -80,7 +80,7 @@ func main() {
 
 	// protected routes
 	protected := r.Group("/links")
-	protected.Use(middleware.RateLimit(redis, cfg), middleware.APIKeyAuth(store))
+	protected.Use(middleware.RateLimit(redis, cfg), middleware.APIKeyAuth(store, cfg))
 	{
 		protected.POST("", linkHandler.CreateLink)
 		protected.DELETE("/:slug", linkHandler.DeleteLink)
