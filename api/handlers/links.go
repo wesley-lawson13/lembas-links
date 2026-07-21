@@ -91,7 +91,7 @@ func (lh *LinkHandler) CreateLink(c *gin.Context) {
 
 // DeleteLink godoc
 // @Summary      Delete a shortened link
-// @Description  Soft-deletes the link (sets is_active = false) and evicts it from the Redis cache. The slug is not returned to the pool.
+// @Description  Soft-deletes the link (sets is_active = false) and evicts it from the Redis cache. The slug is not returned to the pool. Only the link's owner may delete it.
 // @Tags         links
 // @Produce      json
 // @Param        slug path     string true "URL slug" example("one-ring-to-rule")
@@ -104,8 +104,22 @@ func (lh *LinkHandler) DeleteLink(c *gin.Context) {
 	// get the slug
 	slug := c.Param("slug")
 
+	url, err := lh.store.GetURL(slug)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "slug not found"})
+		return
+	}
+
+	callerKey := models.HashKey(middleware.ExtractBearerToken(c.GetHeader("Authorization")))
+	if url.APIKey != callerKey {
+		// Same message as a nonexistent slug so this endpoint never leaks
+		// which slugs exist versus which you don't own.
+		c.JSON(http.StatusNotFound, gin.H{"error": "slug not found"})
+		return
+	}
+
 	// call the delete function and check for errors
-	err := lh.store.DeleteURL(slug)
+	err = lh.store.DeleteURL(slug)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "slug not found"})
 		return
