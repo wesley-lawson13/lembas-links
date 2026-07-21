@@ -98,7 +98,7 @@ func TestRateLimit_BlocksRequestsOverIPThreshold(t *testing.T) {
 func TestRateLimit_BlocksRequestsOverKeyThreshold(t *testing.T) {
 	client := setupTestRedis(t)
 	authHeader := "Bearer test-rate-key-1"
-	t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:key:%s", authHeader)) })
+	t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:key:%s", ExtractBearerToken(authHeader))) })
 
 	cfg := &config.Config{IPRateLimit: 1000, KeyRateLimit: 3, RateLimitWindow: 60}
 	router := newTestRouter(cfg, client)
@@ -120,6 +120,36 @@ func TestRateLimit_BlocksRequestsOverKeyThreshold(t *testing.T) {
 	w := doRequest(router, ip, authHeader)
 	if w.Code != http.StatusTooManyRequests {
 		t.Fatalf("expected 429 got %d", w.Code)
+	}
+}
+
+func TestRateLimit_PrefixedAndUnprefixedHeaderShareCounter(t *testing.T) {
+	client := setupTestRedis(t)
+	rawKey := "test-rate-key-2"
+	t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:key:%s", rawKey)) })
+
+	cfg := &config.Config{IPRateLimit: 1000, KeyRateLimit: 3, RateLimitWindow: 60}
+	router := newTestRouter(cfg, client)
+
+	// alternate "Bearer <key>" and bare "<key>" across requests; if they
+	// didn't share a counter, none of these would ever hit the threshold
+	headers := []string{"Bearer " + rawKey, rawKey, "Bearer " + rawKey}
+	for i, h := range headers {
+		ip := fmt.Sprintf("10.10.60.%d", i+1)
+		t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:ip:%s", ip)) })
+
+		w := doRequest(router, ip, h)
+		if w.Code != http.StatusOK {
+			t.Fatalf("request %d: expected 200 got %d", i+1, w.Code)
+		}
+	}
+
+	ip := "10.10.60.99"
+	t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:ip:%s", ip)) })
+
+	w := doRequest(router, ip, rawKey)
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429 got %d (prefixed/unprefixed headers should share one counter)", w.Code)
 	}
 }
 
