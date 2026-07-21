@@ -86,6 +86,7 @@ func main() {
 	protected.Use(middleware.RateLimit(redis, cfg), middleware.APIKeyAuth(store, cfg))
 	{
 		protected.POST("", linkHandler.CreateLink)
+		protected.GET("", linkHandler.ListLinks)
 		protected.DELETE("/:slug", linkHandler.DeleteLink)
 		protected.GET("/:slug/stats", linkHandler.GetStats)
 	}

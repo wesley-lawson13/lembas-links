@@ -21,9 +21,6 @@ definitions:
     type: object
   handlers.CreateLinkRequest:
     properties:
-      api_key:
-        example: my-api-key
-        type: string
       url:
         example: https://example.com/some/very/long/path
         type: string
@@ -44,6 +41,40 @@ definitions:
     properties:
       error:
         example: slug not found
+        type: string
+    type: object
+  handlers.LinkSummary:
+    properties:
+      click_count:
+        example: 42
+        type: integer
+      created_at:
+        type: string
+      expires_at:
+        type: string
+      original:
+        example: https://example.com
+        type: string
+      short_url:
+        example: http://localhost:8080/one-ring-to-rule
+        type: string
+      slug:
+        example: one-ring-to-rule
+        type: string
+    type: object
+  handlers.ListLinksResponse:
+    properties:
+      links:
+        items:
+          $ref: '#/definitions/handlers.LinkSummary'
+        type: array
+    type: object
+  handlers.SessionResponse:
+    properties:
+      api_key:
+        example: a1b2c3d4...
+        type: string
+      expires_at:
         type: string
     type: object
   handlers.StatsResponse:
@@ -106,6 +137,21 @@ paths:
       tags:
       - redirect
   /links:
+    get:
+      description: Returns a summary of every active link owned by the authenticated
+        API key.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.ListLinksResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: List the caller's own links
+      tags:
+      - links
     post:
       consumes:
       - application/json
@@ -191,6 +237,25 @@ paths:
       summary: Get link statistics
       tags:
       - links
+  /session:
+    post:
+      description: Generates a new random API key with no login/signup required. The
+        key's expiry slides forward on every authenticated request, so an active visitor
+        never loses access; only abandoned keys age out.
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/handlers.SessionResponse'
+        "500":
+          description: internal error (key generation or DB failure)
+          schema:
+            $ref: '#/definitions/handlers.ErrorResponse'
+      summary: Mint an anonymous session key
+      tags:
+      - session
 securityDefinitions:
   ApiKeyAuth:
     description: API key prefixed with "Bearer " (e.g. "Bearer my-api-key")

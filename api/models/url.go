@@ -41,6 +41,47 @@ func (s *URLStore) CreateURL(slug, original, apiKey string, expiresAt time.Time)
 	return nil
 }
 
+// ListURLsByAPIKey returns the caller's own active links, matched by hashing
+// rawAPIKey and comparing against the stored hash in urls.api_key.
+func (s *URLStore) ListURLsByAPIKey(rawAPIKey string) ([]URL, error) {
+
+	query := `
+        SELECT id, slug, original, api_key, click_count, expires_at, created_at, is_active
+        FROM urls
+        WHERE api_key = $1 AND is_active = TRUE
+        ORDER BY created_at DESC
+    `
+
+	rows, err := s.db.Query(query, hashKey(rawAPIKey))
+	if err != nil {
+		return nil, fmt.Errorf("failed to list urls: %w", err)
+	}
+	defer rows.Close()
+
+	urls := []URL{}
+	for rows.Next() {
+		var url URL
+		if err := rows.Scan(
+			&url.ID,
+			&url.Slug,
+			&url.Original,
+			&url.APIKey,
+			&url.ClickCount,
+			&url.ExpiresAt,
+			&url.CreatedAt,
+			&url.IsActive,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan url: %w", err)
+		}
+		urls = append(urls, url)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to list urls: %w", err)
+	}
+
+	return urls, nil
+}
+
 func (s *URLStore) GetURL(slug string) (*URL, error) {
 
 	url := &URL{}

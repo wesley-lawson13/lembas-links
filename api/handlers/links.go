@@ -10,6 +10,7 @@ import (
 
 	// local imports
 	"github.com/wesley-lawson13/lembas-links/config"
+	"github.com/wesley-lawson13/lembas-links/middleware"
 	"github.com/wesley-lawson13/lembas-links/models"
 )
 
@@ -38,8 +39,7 @@ func NewLinkHandler(store *models.URLStore, redis *redis.Client, cfg *config.Con
 func (lh *LinkHandler) CreateLink(c *gin.Context) {
 
 	var body struct {
-		URL    string `json:"url"`
-		APIKey string `json:"api_key"`
+		URL string `json:"url"`
 	}
 
 	// map contect from gin into the HTTP response body struct
@@ -63,8 +63,11 @@ func (lh *LinkHandler) CreateLink(c *gin.Context) {
 	// create the expires at value
 	expiresAt := time.Now().Add(time.Duration(lh.cfg.DefaultTTLDays) * 24 * time.Hour)
 
+	// ownership comes from the authenticated caller, not the request body
+	ownerKey := models.HashKey(middleware.ExtractBearerToken(c.GetHeader("Authorization")))
+
 	// create the url
-	err = lh.store.CreateURL(slug, body.URL, body.APIKey, expiresAt)
+	err = lh.store.CreateURL(slug, body.URL, ownerKey, expiresAt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create link"})
 		return
@@ -116,4 +119,37 @@ func (lh *LinkHandler) DeleteLink(c *gin.Context) {
 
 	// only need to return the status
 	c.Status(http.StatusNoContent)
+}
+
+// ListLinks godoc
+// @Summary      List the caller's own links
+// @Description  Returns a summary of every active link owned by the authenticated API key.
+// @Tags         links
+// @Produce      json
+// @Success      200  {object} ListLinksResponse
+// @Security     ApiKeyAuth
+// @Router       /links [get]
+func (lh *LinkHandler) ListLinks(c *gin.Context) {
+
+	rawKey := middleware.ExtractBearerToken(c.GetHeader("Authorization"))
+
+	urls, err := lh.store.ListURLsByAPIKey(rawKey)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list links"})
+		return
+	}
+
+	links := make([]LinkSummary, 0, len(urls))
+	for _, url := range urls {
+		links = append(links, LinkSummary{
+			Slug:       url.Slug,
+			ShortURL:   lh.cfg.BaseURL + "/" + url.Slug,
+			Original:   url.Original,
+			ClickCount: url.ClickCount,
+			CreatedAt:  url.CreatedAt,
+			ExpiresAt:  url.ExpiresAt,
+		})
+	}
+
+	c.JSON(http.StatusOK, gin.H{"links": links})
 }

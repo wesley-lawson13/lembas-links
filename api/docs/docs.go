@@ -16,6 +16,29 @@ const docTemplate = `{
     "basePath": "{{.BasePath}}",
     "paths": {
         "/links": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns a summary of every active link owned by the authenticated API key.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "links"
+                ],
+                "summary": "List the caller's own links",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ListLinksResponse"
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {
@@ -145,6 +168,32 @@ const docTemplate = `{
                 }
             }
         },
+        "/session": {
+            "post": {
+                "description": "Generates a new random API key with no login/signup required. The key's expiry slides forward on every authenticated request, so an active visitor never loses access; only abandoned keys age out.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "session"
+                ],
+                "summary": "Mint an anonymous session key",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.SessionResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal error (key generation or DB failure)",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/{slug}": {
             "get": {
                 "description": "Resolves a slug to its original URL (Redis cache first, then DB) and issues a 302 redirect. Click metadata is recorded asynchronously. Returns 410 if the link has expired.",
@@ -216,10 +265,6 @@ const docTemplate = `{
         "handlers.CreateLinkRequest": {
             "type": "object",
             "properties": {
-                "api_key": {
-                    "type": "string",
-                    "example": "my-api-key"
-                },
                 "url": {
                     "type": "string",
                     "example": "https://example.com/some/very/long/path"
@@ -249,6 +294,56 @@ const docTemplate = `{
                 "error": {
                     "type": "string",
                     "example": "slug not found"
+                }
+            }
+        },
+        "handlers.LinkSummary": {
+            "type": "object",
+            "properties": {
+                "click_count": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "original": {
+                    "type": "string",
+                    "example": "https://example.com"
+                },
+                "short_url": {
+                    "type": "string",
+                    "example": "http://localhost:8080/one-ring-to-rule"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "one-ring-to-rule"
+                }
+            }
+        },
+        "handlers.ListLinksResponse": {
+            "type": "object",
+            "properties": {
+                "links": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.LinkSummary"
+                    }
+                }
+            }
+        },
+        "handlers.SessionResponse": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "type": "string",
+                    "example": "a1b2c3d4..."
+                },
+                "expires_at": {
+                    "type": "string"
                 }
             }
         },
