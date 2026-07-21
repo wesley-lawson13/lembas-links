@@ -73,6 +73,10 @@ A one-time Python pipeline, not part of the live API. Run via `make generate` wh
 
 The output (`db/seeds/quotes.sql`) is committed to the repo so the NLP pipeline doesn't need to run in production.
 
+## Development Conventions
+
+Before writing a new function, write a 1-2 sentence description of what it does and where it gets called from.
+
 ## Environment Variables
 
 See `.env.example` for the full list. Key variables:
