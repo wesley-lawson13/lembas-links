@@ -13,7 +13,9 @@ package main
 import (
 	"fmt"
 	"log"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -57,6 +59,22 @@ func main() {
 
 	// set up router
 	r := gin.Default()
+
+	// CORS must run before any route group so preflight OPTIONS requests
+	// never hit RateLimit/APIKeyAuth/SessionRateLimit.
+	// gin-contrib/cors panics on an empty AllowOrigins list, so skip
+	// registering it entirely when unconfigured rather than crash the API;
+	// non-browser callers (curl, health checks) are unaffected either way
+	// since CORS only ever applies to requests carrying an Origin header.
+	if len(cfg.CORSAllowedOrigins) > 0 {
+		r.Use(cors.New(cors.Config{
+			AllowOrigins:     cfg.CORSAllowedOrigins,
+			AllowMethods:     []string{"GET", "POST", "DELETE", "OPTIONS"},
+			AllowHeaders:     []string{"Authorization", "Content-Type"},
+			AllowCredentials: false,
+			MaxAge:           12 * time.Hour,
+		}))
+	}
 
 	// get the link and session handlers for routes
 	linkHandler := handlers.NewLinkHandler(store, redis, cfg)
