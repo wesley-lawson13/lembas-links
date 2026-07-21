@@ -23,6 +23,7 @@ type URL struct {
 type URLStats struct {
 	Slug       string
 	Original   string
+	APIKey     string
 	ClickCount int
 	ExpiresAt  time.Time
 	CreatedAt  time.Time

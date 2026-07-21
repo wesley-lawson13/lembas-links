@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/wesley-lawson13/lembas-links/middleware"
 	"github.com/wesley-lawson13/lembas-links/models"
 )
 
@@ -33,6 +34,14 @@ func (lh *LinkHandler) GetStats(c *gin.Context) {
 
 	if !urlStats.IsActive || time.Now().After(urlStats.ExpiresAt) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "url expired"})
+		return
+	}
+
+	callerKey := models.HashKey(middleware.ExtractBearerToken(c.GetHeader("Authorization")))
+	if urlStats.APIKey != callerKey {
+		// Same message as a nonexistent slug so this endpoint never leaks
+		// which slugs exist versus which you don't own.
+		c.JSON(http.StatusNotFound, gin.H{"error": "stats not found"})
 		return
 	}
 
