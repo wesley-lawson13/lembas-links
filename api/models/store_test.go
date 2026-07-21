@@ -167,6 +167,46 @@ func TestRecordAndGetClicks(t *testing.T) {
     }
 }
 
+func TestListURLsByAPIKey(t *testing.T) {
+    db := setupTestDB(t)
+    store := NewURLStore(db)
+
+    keyA := "test-list-key-a"
+    keyB := "test-list-key-b"
+    cleanupURLs(t, db, hashKey(keyA))
+    cleanupURLs(t, db, hashKey(keyB))
+
+    slugA1, _ := store.GetSlug()
+    store.CreateURL(slugA1, "https://example.com/a1", hashKey(keyA), time.Now().Add(30*24*time.Hour))
+    slugA2, _ := store.GetSlug()
+    store.CreateURL(slugA2, "https://example.com/a2", hashKey(keyA), time.Now().Add(30*24*time.Hour))
+    slugB1, _ := store.GetSlug()
+    store.CreateURL(slugB1, "https://example.com/b1", hashKey(keyB), time.Now().Add(30*24*time.Hour))
+
+    urls, err := store.ListURLsByAPIKey(keyA)
+    if err != nil {
+        t.Fatalf("ListURLsByAPIKey failed: %v", err)
+    }
+    if len(urls) != 2 {
+        t.Fatalf("expected 2 urls for key A, got %d", len(urls))
+    }
+
+    if err := store.DeleteURL(slugA1); err != nil {
+        t.Fatalf("DeleteURL failed: %v", err)
+    }
+
+    urls, err = store.ListURLsByAPIKey(keyA)
+    if err != nil {
+        t.Fatalf("ListURLsByAPIKey failed: %v", err)
+    }
+    if len(urls) != 1 {
+        t.Fatalf("expected 1 url for key A after soft-delete, got %d", len(urls))
+    }
+    if urls[0].Slug != slugA2 {
+        t.Errorf("expected remaining url to be %s, got %s", slugA2, urls[0].Slug)
+    }
+}
+
 // cleanupAPIKey removes a test API key (by its hash) after the test.
 func cleanupAPIKey(t *testing.T, db *sql.DB, hashedKey string) {
     t.Helper()
