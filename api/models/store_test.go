@@ -167,23 +167,37 @@ func TestRecordAndGetClicks(t *testing.T) {
     }
 }
 
+// cleanupAPIKey removes a test API key (by its hash) after the test.
+func cleanupAPIKey(t *testing.T, db *sql.DB, hashedKey string) {
+    t.Helper()
+    t.Cleanup(func() {
+        db.Exec("DELETE FROM api_keys WHERE key = $1", hashedKey)
+    })
+}
+
 func TestValidateKey(t *testing.T) {
     db := setupTestDB(t)
     store := NewURLStore(db)
+
+    rawKey, err := store.CreateKey(24 * time.Hour)
+    if err != nil {
+        t.Fatalf("CreateKey failed: %v", err)
+    }
+    cleanupAPIKey(t, db, hashKey(rawKey))
 
     cases := []struct {
         name    string
         key     string
         wantErr bool
     }{
-        {"valid key", "test-api-key-123", false},
+        {"valid key", rawKey, false},
         {"invalid key", "not-a-real-key", true},
         {"empty key", "", true},
     }
 
     for _, tc := range cases {
         t.Run(tc.name, func(t *testing.T) {
-            err := store.ValidateKey(tc.key)
+            err := store.ValidateKey(tc.key, 24*time.Hour)
             if tc.wantErr && err == nil {
                 t.Error("expected error but got nil")
             }
@@ -191,6 +205,75 @@ func TestValidateKey(t *testing.T) {
                 t.Errorf("expected no error but got: %v", err)
             }
         })
+    }
+}
+
+func TestCreateAndValidateKeyRoundTrip(t *testing.T) {
+    db := setupTestDB(t)
+    store := NewURLStore(db)
+
+    rawKey, err := store.CreateKey(24 * time.Hour)
+    if err != nil {
+        t.Fatalf("CreateKey failed: %v", err)
+    }
+    cleanupAPIKey(t, db, hashKey(rawKey))
+
+    if err := store.ValidateKey(rawKey, 24*time.Hour); err != nil {
+        t.Errorf("expected freshly created key to validate, got: %v", err)
+    }
+}
+
+func TestValidateKeyExpired(t *testing.T) {
+    db := setupTestDB(t)
+    store := NewURLStore(db)
+
+    rawKey, err := generateRawKey(32)
+    if err != nil {
+        t.Fatalf("generateRawKey failed: %v", err)
+    }
+    hashedKey := hashKey(rawKey)
+    cleanupAPIKey(t, db, hashedKey)
+
+    _, err = db.Exec(
+        "INSERT INTO api_keys (key, expires_at) VALUES ($1, $2)",
+        hashedKey, time.Now().Add(-1*time.Hour),
+    )
+    if err != nil {
+        t.Fatalf("failed to insert expired key: %v", err)
+    }
+
+    if err := store.ValidateKey(rawKey, 24*time.Hour); err == nil {
+        t.Error("expected expired key to fail validation")
+    }
+}
+
+func TestValidateKeySlidesExpiry(t *testing.T) {
+    db := setupTestDB(t)
+    store := NewURLStore(db)
+
+    rawKey, err := store.CreateKey(1 * time.Hour)
+    if err != nil {
+        t.Fatalf("CreateKey failed: %v", err)
+    }
+    hashedKey := hashKey(rawKey)
+    cleanupAPIKey(t, db, hashedKey)
+
+    var before time.Time
+    if err := db.QueryRow("SELECT expires_at FROM api_keys WHERE key = $1", hashedKey).Scan(&before); err != nil {
+        t.Fatalf("failed to read initial expires_at: %v", err)
+    }
+
+    if err := store.ValidateKey(rawKey, 24*time.Hour); err != nil {
+        t.Fatalf("ValidateKey failed: %v", err)
+    }
+
+    var after time.Time
+    if err := db.QueryRow("SELECT expires_at FROM api_keys WHERE key = $1", hashedKey).Scan(&after); err != nil {
+        t.Fatalf("failed to read slid expires_at: %v", err)
+    }
+
+    if !after.After(before) {
+        t.Errorf("expected expires_at to slide forward, before=%v after=%v", before, after)
     }
 }
 
