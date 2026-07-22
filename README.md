@@ -14,6 +14,7 @@ A Lord of the Rings themed URL shortener built in Go (Gin) with Redis caching, A
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
 - [API Reference](#api-reference)
+- [Testing](#testing)
 - [NLP Pipeline](#nlp-pipeline)
 - [Deployment](#deployment)
 
@@ -23,9 +24,13 @@ A Lord of the Rings themed URL shortener built in Go (Gin) with Redis caching, A
 
 - LOTR themed slugs generated from quote keyphrases
 - Redis caching on all redirects
-- API key authentication middleware on protected routes
-- Redis-based rate limiting per IP and per API key
+- API key authentication middleware on protected routes, with hashed key storage and a sliding TTL (an active key's expiry pushes forward on every authenticated request)
+- Anonymous, self-serve session keys (`POST /session`) — no signup required to start creating links
+- Per-caller link ownership: callers can only list, view stats for, or delete links created with their own key
+- Redis-based rate limiting per IP and per API key, plus a stricter dedicated limit on session-key minting
 - Click analytics: timestamp, referrer, user agent, and IP on every redirect asynchronously
+- CORS support for browser-based frontends (configurable allowed origins)
+- Interactive Swagger/OpenAPI docs served at `/swagger/index.html`
 - Fully containerized with Docker Compose
 - Automatic database migrations on startup
 
@@ -55,21 +60,44 @@ The NLP preprocessing pipeline is a separate tool that runs once to generate the
 
 First, follow the [Getting Started](#getting-started) steps to get the services running locally. All examples below assume the API is running at `http://localhost:8080` and use the dev API key inserted by `make seed-dev` (`test-api-key-123`).
 
+### Getting an API Key
+
+Two options:
+
+- **Dev key:** run `make seed-dev` after starting the services — it inserts a fixed test key (`test-api-key-123`) for local development.
+- **Session key:** mint your own anonymous key, no signup required:
+
+    ```bash
+    curl -X POST http://localhost:8080/session
+    ```
+
+    Response:
+    ```json
+    {
+        "api_key": "9f2c...raw-key...",
+        "expires_at": "2026-08-20T16:00:00Z"
+    }
+    ```
+
+    A key's expiry slides forward on every authenticated request, so an active caller never loses access — only abandoned keys age out.
+
+Pass the key as a Bearer token: `Authorization: Bearer <api_key>`.
+
 ### Create a Short Link
 
 ```bash
 curl -X POST http://localhost:8080/links \
     -H "Content-Type: application/json" \
-    -H "Authorization: test-api-key-123" \
+    -H "Authorization: Bearer test-api-key-123" \
     -d '{"url": "https://your-long-url.com"}'
 ```
 
 Response:
 ```json
 {
-    "url": "http://localhost:8080/gandalf-shadow-flame",
-    "original": "https://your-long-url.com",
-    "slug": "gandalf-shadow-flame"
+    "slug": "gandalf-shadow-flame",
+    "short_url": "http://localhost:8080/gandalf-shadow-flame",
+    "original": "https://your-long-url.com"
 }
 ```
 
@@ -81,23 +109,30 @@ Visit the short URL in your browser or via curl:
 curl -L http://localhost:8080/gandalf-shadow-flame
 ```
 
+### List Your Links
+
+```bash
+curl http://localhost:8080/links \
+    -H "Authorization: Bearer test-api-key-123"
+```
+
+Returns every active link created with that API key.
+
 ### Check Link Stats
 
 ```bash
 curl http://localhost:8080/links/gandalf-shadow-flame/stats \
-    -H "Authorization: test-api-key-123"
+    -H "Authorization: Bearer test-api-key-123"
 ```
+
+Only the key that created a link can view its stats or delete it — any other key gets a `404`, same as a nonexistent slug.
 
 ### Delete a Link
 
 ```bash
 curl -X DELETE http://localhost:8080/links/gandalf-shadow-flame \
-    -H "Authorization: test-api-key-123"
+    -H "Authorization: Bearer test-api-key-123"
 ```
-
-### Getting an API Key
-
-Run `make seed-dev` after starting the services — it inserts a test key (`test-api-key-123`) for local development.
 
 ## Tech Stack
 
@@ -143,16 +178,20 @@ make seed
 ```
 Loads the pre-generated LOTR themed slug pool (~340 slugs) into Postgres.
 
-### 5. Create a dev API key
+### 5. Create an API key
 ```bash
 make seed-dev
 ```
-Inserts a test API key for local development.
+Inserts a fixed test API key (`test-api-key-123`) for local development. Alternatively, mint your own via `curl -X POST http://localhost:8080/session` — see [Getting an API Key](#getting-an-api-key).
 
 ### 6. Verify everything is running
 ```bash
 curl http://localhost:8080/health
 ```
+
+### 7. (Optional) Connect a local frontend
+
+If you're running a frontend dev server against this API, set `CORS_ALLOWED_ORIGINS` in `.env` to its origin (e.g. `http://localhost:5173`) and restart the API so the CORS middleware picks it up.
 
 ---
 
@@ -160,13 +199,51 @@ curl http://localhost:8080/health
 
 ### Authentication
 
-Protected endpoints require an API key passed in the `Authorization` header:
-    `Authorization: your-api-key`
+Protected endpoints require an API key passed in the `Authorization` header, optionally prefixed with `Bearer `:
+    `Authorization: Bearer your-api-key`
+
+Get a key via `make seed-dev` or `POST /session` — see [Getting an API Key](#getting-an-api-key). Keys are stored hashed (SHA-256) and their expiry slides forward by `DEFAULT_TTL_DAYS` on every authenticated request.
 
 ### Endpoints
 
+#### `GET /health` — Public
+Liveness check. Returns a static `200` payload (the field values are constants, not live probes of Postgres/Redis).
+
+**Response `200`:**
+```json
+{
+    "status": "ok",
+    "service": "lembas-links",
+    "database": "connected",
+    "cache": "connected"
+}
+```
+
+---
+
+#### `POST /session` — Public
+Mint a new anonymous API key. No login or signup required.
+
+**Response `201`:**
+```json
+{
+    "api_key": "9f2c...raw-key...",
+    "expires_at": "2026-08-20T16:00:00Z"
+}
+```
+
+Rate limited per IP — see [Rate Limits](#rate-limits).
+
+| Status | Meaning |
+|---|---|
+| `201` | Key minted |
+| `429` | Rate limit exceeded |
+| `503` | Redis unavailable — the session limiter fails closed, so key minting is refused rather than left unmetered |
+
+---
+
 #### `POST /links` — Protected
-Create a new Lord of the Rings link.
+Create a new Lord of the Rings link, owned by the calling API key.
 
 **Request:**
 ```json
@@ -175,14 +252,50 @@ Create a new Lord of the Rings link.
 }
 ```
 
+**Validation:** the target must be an absolute `http` or `https` URL that includes a host and is at most 2048 characters. Other schemes (`javascript:`, `data:`, `file:`, `mailto:`, …) are rejected so the shortener can't be turned into an open redirector.
+
 **Response `201`:**
 ```json
 {
-    "url": "http://localhost:8080/gandalf-shadow-flame",
-    "original": "https://your-long-url.com",
-    "slug": "gandalf-shadow-flame"
+    "slug": "gandalf-shadow-flame",
+    "short_url": "http://localhost:8080/gandalf-shadow-flame",
+    "original": "https://your-long-url.com"
 }
 ```
+
+| Status | Meaning |
+|---|---|
+| `201` | Link created |
+| `400` | URL missing, malformed, over-length, or a disallowed scheme |
+| `401` | Missing or invalid/expired API key |
+| `429` | Rate limit exceeded |
+
+---
+
+#### `GET /links` — Protected
+List every active link owned by the calling API key.
+
+**Response `200`:**
+```json
+{
+    "links": [
+        {
+            "slug": "gandalf-shadow-flame",
+            "short_url": "http://localhost:8080/gandalf-shadow-flame",
+            "original": "https://your-long-url.com",
+            "click_count": 42,
+            "created_at": "2026-04-06T16:00:00Z",
+            "expires_at": "2026-05-06T16:00:00Z"
+        }
+    ]
+}
+```
+
+| Status | Meaning |
+|---|---|
+| `200` | Links returned (empty array if the key owns none) |
+| `401` | Missing or invalid/expired API key |
+| `429` | Rate limit exceeded |
 
 ---
 
@@ -196,11 +309,12 @@ Redirect to the original URL. Checks Redis cache first, falls back to Postgres. 
 | `302` | Redirect successful |
 | `404` | Slug not found or link inactive |
 | `410` | Link has expired |
+| `429` | Rate limit exceeded |
 
 ---
 
 #### `GET /links/:slug/stats` — Protected
-Get analytics for a Lord of the Rings link.
+Get analytics for a Lord of the Rings link. Only the API key that created the link can view its stats; any other key (or a nonexistent slug) returns `404`.
 
 **Response `200`:**
 ```json
@@ -224,12 +338,26 @@ Get analytics for a Lord of the Rings link.
 }
 ```
 
+| Status | Meaning |
+|---|---|
+| `200` | Stats returned |
+| `401` | Missing or invalid/expired API key |
+| `404` | Slug not found, inactive, expired, or owned by another key |
+| `429` | Rate limit exceeded |
+
 ---
 
 #### `DELETE /links/:slug` — Protected
 Soft delete a Lord of the Rings link. Immediately invalidates Redis cache.
 
 **Response:** `204 No Content`
+
+| Status | Meaning |
+|---|---|
+| `204` | Link soft-deleted |
+| `401` | Missing or invalid/expired API key |
+| `404` | Slug not found, or owned by another key (same response, to avoid leaking existence) |
+| `429` | Rate limit exceeded |
 
 ---
 
@@ -239,8 +367,42 @@ Soft delete a Lord of the Rings link. Immediately invalidates Redis cache.
 |---|---|
 | Per IP | 60 requests/minute |
 | Per API Key | 120 requests/minute |
+| `POST /session` (per IP) | 5 requests/hour |
 
 Exceeding limits returns `429 Too Many Requests`.
+
+---
+
+## Testing
+
+Most tests are unit tests with no external dependencies. A few (in `models`, `middleware`, and `handlers`) are integration tests that talk to a real Postgres/Redis instance and are skipped automatically unless the relevant test connection string is set.
+
+### Running tests
+
+```bash
+make test        # cd api && go test ./models/... -v
+make test-rate    # cd api && go test ./middleware/... -v
+```
+
+To run the full suite (all packages, including `handlers`):
+```bash
+cd api && go test ./...
+```
+
+To run a single test:
+```bash
+cd api && go test ./... -run TestFunctionName
+```
+
+### Enabling integration tests
+
+Integration tests check for `TEST_DATABASE_URL` (Postgres) and `TEST_REDIS_URL` (Redis) and call `t.Skip` if unset. With `make run` already up, the compose services are reachable from the host, so you can point both at localhost:
+
+```bash
+# in .env
+TEST_DATABASE_URL=postgres://<user>:<password>@localhost:5432/<db>?sslmode=disable
+TEST_REDIS_URL=redis://localhost:6379
+```
 
 ---
 
@@ -288,21 +450,20 @@ This project was previously deployed on Railway. The deployment is no longer act
 | `DATABASE_URL` | Postgres connection string used by the API | required |
 | `REDIS_URL` | Redis connection string | required |
 | `API_PORT` | Port to run the API on | `8080` |
-| `API_KEY_SECRET` | Secret for API key signing | required |
+| `API_SECRET_KEY` | Reserved for future use — the API currently generates and validates keys via random bytes + SHA-256 hashing and does not read this value | optional |
 | `BASE_URL` | Base URL for short links | required |
 | `IP_RATE_LIMIT` | Requests per minute per IP | `60` |
 | `KEY_RATE_LIMIT` | Requests per minute per API key | `120` |
 | `RATE_LIMIT_WINDOW` | Rate limit window, in seconds | `60` |
-| `DEFAULT_TTL_DAYS` | Default link expiry in days | `30` |
+| `DEFAULT_TTL_DAYS` | Default link expiry in days; also the sliding-TTL window applied to API keys on each authenticated request | `30` |
+| `SESSION_RATE_LIMIT` | Max `POST /session` requests per IP per window | `5` |
+| `SESSION_RATE_LIMIT_WINDOW` | `POST /session` rate limit window, in seconds | `3600` |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed browser origins (e.g. `http://localhost:5173`). CORS middleware is skipped entirely if unset | optional |
 | `RECENT_CLICKS_LIMIT` | Number of recent clicks returned by the stats endpoint | `10` |
 | `TEST_DATABASE_URL` | Postgres connection string used by `go test` for integration tests; tests are skipped if unset | optional |
+| `TEST_REDIS_URL` | Redis connection string used by `go test` for integration tests; tests are skipped if unset | optional |
 
 > **Note:** `.env.example` also defines `NLP_SERVICE_URL`, but no service currently reads it — it's not required to run the project and can be left blank.
-
-Generate a secure `API_KEY_SECRET`:
-```bash
-openssl rand -hex 32
-```
 
 ---
 

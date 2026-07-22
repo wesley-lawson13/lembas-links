@@ -14,7 +14,8 @@ All common operations are in the `Makefile`:
 make run        # Start all services via Docker Compose (builds first)
 make stop       # Stop all services
 make build      # Build Docker images only
-make test       # Run Go tests (cd api && go test ./...)
+make test       # Run model tests (cd api && go test ./models/... -v)
+make test-rate  # Run middleware tests (cd api && go test ./middleware/... -v)
 make migrate    # Run database migrations via golang-migrate
 make seed       # Load pre-generated LOTR slug pool into Postgres
 make seed-dev   # Insert a test API key for local development
@@ -77,11 +78,18 @@ The output (`db/seeds/quotes.sql`) is committed to the repo so the NLP pipeline 
 
 Before writing a new function, write a 1-2 sentence description of what it does and where it gets called from.
 
+### Commit Messages
+
+- **Subject line**: a single, descriptive partial-sentence (not a full sentence, no trailing period) covering only the core change of the commit.
+- **Body**: separated from the subject by a blank line, with two parts:
+  1. Specific details on what changed (files, behaviors, edge cases handled).
+  2. An overarching "why" — the reasoning or context behind why the change was made this way.
+
 ## Environment Variables
 
 See `.env.example` for the full list. Key variables:
 - `DATABASE_URL` / `REDIS_URL` — Connection strings
 - `BASE_URL` — The domain used to construct short URLs
-- `API_KEY_SECRET` — Used for secure key generation
+- `API_SECRET_KEY` — Reserved for secure key generation (currently unused by the API)
 - `IP_RATE_LIMIT`, `KEY_RATE_LIMIT`, `DEFAULT_TTL_DAYS` — Tunable defaults
 - `ANTHROPIC_API_KEY` — Only needed when running the NLP pipeline (`make generate`)
