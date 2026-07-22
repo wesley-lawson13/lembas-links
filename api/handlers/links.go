@@ -32,7 +32,7 @@ func NewLinkHandler(store *models.URLStore, redis *redis.Client, cfg *config.Con
 // @Produce      json
 // @Param        body body     CreateLinkRequest true "URL to shorten"
 // @Success      201  {object} CreateLinkResponse
-// @Failure      400  {object} ErrorResponse "missing or invalid request body"
+// @Failure      400  {object} ErrorResponse "missing body, or url is empty, malformed, non-http(s), or too long"
 // @Failure      500  {object} ErrorResponse "internal error (slug pool exhausted, DB failure)"
 // @Security     ApiKeyAuth
 // @Router       /links [post]
@@ -50,6 +50,13 @@ func (lh *LinkHandler) CreateLink(c *gin.Context) {
 
 	if body.URL == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "url is required"})
+		return
+	}
+
+	// reject anything we shouldn't redirect to (non-http(s) schemes, no host,
+	// over-length) so this endpoint can't be used as an open redirector
+	if err := validateTargetURL(body.URL); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 

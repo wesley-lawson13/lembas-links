@@ -75,7 +75,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "missing or invalid request body",
+                        "description": "missing body, or url is empty, malformed, non-http(s), or too long",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -96,7 +96,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Soft-deletes the link (sets is_active = false) and evicts it from the Redis cache. The slug is not returned to the pool.",
+                "description": "Soft-deletes the link (sets is_active = false) and evicts it from the Redis cache. The slug is not returned to the pool. Only the link's owner may delete it.",
                 "produces": [
                     "application/json"
                 ],

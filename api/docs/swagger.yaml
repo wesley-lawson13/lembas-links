@@ -173,7 +173,8 @@ paths:
           schema:
             $ref: '#/definitions/handlers.CreateLinkResponse'
         "400":
-          description: missing or invalid request body
+          description: missing body, or url is empty, malformed, non-http(s), or too
+            long
           schema:
             $ref: '#/definitions/handlers.ErrorResponse'
         "500":
@@ -188,7 +189,8 @@ paths:
   /links/{slug}:
     delete:
       description: Soft-deletes the link (sets is_active = false) and evicts it from
-        the Redis cache. The slug is not returned to the pool.
+        the Redis cache. The slug is not returned to the pool. Only the link's owner
+        may delete it.
       parameters:
       - description: URL slug
         example: '"one-ring-to-rule"'
