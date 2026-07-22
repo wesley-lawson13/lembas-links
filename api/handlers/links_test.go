@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,6 +53,57 @@ func doDeleteRequest(r *gin.Engine, slug, authHeader string) *httptest.ResponseR
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 	return w
+}
+
+func TestValidateTargetURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{"plain https", "https://example.com/some/path", false},
+		{"plain http", "http://example.com", false},
+		{"uppercase scheme", "HTTPS://example.com", false},
+		{"javascript scheme", "javascript:alert(1)", true},
+		{"data scheme", "data:text/html,<script>alert(1)</script>", true},
+		{"file scheme", "file:///etc/passwd", true},
+		{"mailto scheme", "mailto:someone@example.com", true},
+		{"scheme-less", "example.com/path", true},
+		{"host-less http", "http://", true},
+		{"over length", "https://example.com/" + strings.Repeat("a", maxURLLength), true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateTargetURL(tc.url)
+			if tc.wantErr && err == nil {
+				t.Fatalf("expected error for %q, got nil", tc.url)
+			}
+			if !tc.wantErr && err != nil {
+				t.Fatalf("expected no error for %q, got %v", tc.url, err)
+			}
+		})
+	}
+}
+
+// TestCreateLink_RejectsInvalidURL confirms the handler returns 400 for a
+// disallowed URL before it ever reaches the store — so a nil store is safe
+// here and proves validation runs first.
+func TestCreateLink_RejectsInvalidURL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cfg := &config.Config{DefaultTTLDays: 30, BaseURL: "http://localhost:8080"}
+	lh := NewLinkHandler(nil, nil, cfg)
+	r := gin.New()
+	r.POST("/links", lh.CreateLink)
+
+	req := httptest.NewRequest(http.MethodPost, "/links", strings.NewReader(`{"url":"javascript:alert(1)"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for javascript: url, got %d", w.Code)
+	}
 }
 
 func TestDeleteLink_OwnershipMismatchReturns404(t *testing.T) {
