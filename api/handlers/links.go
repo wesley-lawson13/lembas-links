@@ -60,30 +60,17 @@ func (lh *LinkHandler) CreateLink(c *gin.Context) {
 		return
 	}
 
-	// get a slug for the long url
-	slug, err := lh.store.GetSlug()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get slug"})
-		return
-	}
-
 	// create the expires at value
 	expiresAt := time.Now().Add(time.Duration(lh.cfg.DefaultTTLDays) * 24 * time.Hour)
 
 	// ownership comes from the authenticated caller, not the request body
 	ownerKey := models.HashKey(middleware.ExtractBearerToken(c.GetHeader("Authorization")))
 
-	// create the url
-	err = lh.store.CreateURL(slug, body.URL, ownerKey, expiresAt)
+	// atomically claim a slug and create the url in one step (picks the
+	// least-used quote and bumps its use_count internally)
+	slug, err := lh.store.AllocateURL(body.URL, ownerKey, expiresAt)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create link"})
-		return
-	}
-
-	// Increment the quote's use_count
-	err = lh.store.IncrementUseCount(slug)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update slug"})
 		return
 	}
 
