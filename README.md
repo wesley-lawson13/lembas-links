@@ -404,6 +404,16 @@ TEST_DATABASE_URL=postgres://<user>:<password>@localhost:5432/<db>?sslmode=disab
 TEST_REDIS_URL=redis://localhost:6379
 ```
 
+### End-to-end smoke test
+
+The Go suites test packages directly, not the running server. `scripts/e2e_smoke_test.sh` covers that gap: it runs curl against a live compose stack (start it with `make run` first) and asserts the expected status code across the full backend flow — health, session key minting, link create/list/stats, ownership isolation between keys, the public redirect, soft-delete, the session-mint rate limit, and the CORS preflight.
+
+```bash
+make e2e
+```
+
+The script fails fast on the first unexpected status and prints which step broke. It resets the `rate:session:*` counters in Redis before minting steps, so it's safe to rerun back-to-back. Configurable via env vars: `API_URL` (default `http://localhost:8080`), `ORIGIN` (default `http://localhost:5173`, must be in `CORS_ALLOWED_ORIGINS`), and `SESSION_RATE_LIMIT` (default 5, must match the API's setting).
+
 ---
 
 ## NLP Pipeline
