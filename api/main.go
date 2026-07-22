@@ -31,8 +31,8 @@ import (
 	"github.com/wesley-lawson13/lembas-links/models"
 
 	// for migrations
-	"github.com/wesley-lawson13/lembas-links/migrate"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	"github.com/wesley-lawson13/lembas-links/migrate"
 )
 
 func main() {
