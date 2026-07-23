@@ -131,7 +131,7 @@ func (lh *LinkHandler) DeleteLink(c *gin.Context) {
 
 // ListLinks godoc
 // @Summary      List the caller's own links
-// @Description  Returns a summary of every active link owned by the authenticated API key.
+// @Description  Returns a summary of every non-deleted link owned by the authenticated API key, including expired links (expiry stops redirects, not the owner's dashboard).
 // @Tags         links
 // @Produce      json
 // @Success      200  {object} ListLinksResponse

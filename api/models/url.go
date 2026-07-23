@@ -110,7 +110,10 @@ func (s *URLStore) CreateURL(slug, original, apiKey string, expiresAt time.Time)
 }
 
 // ListURLsByAPIKey returns the caller's own active links, matched by hashing
-// rawAPIKey and comparing against the stored hash in urls.api_key.
+// rawAPIKey and comparing against the stored hash in urls.api_key. Expired
+// links are intentionally included: expiry stops redirects, not the owner's
+// dashboard (the frontend flags them via expires_at); only owner deletion
+// (is_active = FALSE) hides a link.
 func (s *URLStore) ListURLsByAPIKey(rawAPIKey string) ([]URL, error) {
 
 	query := `

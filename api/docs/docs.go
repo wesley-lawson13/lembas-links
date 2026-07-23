@@ -22,7 +22,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Returns a summary of every active link owned by the authenticated API key.",
+                "description": "Returns a summary of every non-deleted link owned by the authenticated API key, including expired links (expiry stops redirects, not the owner's dashboard).",
                 "produces": [
                     "application/json"
                 ],
@@ -160,7 +160,7 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "slug not found or expired",
+                        "description": "slug not found, deleted, or not owned by caller",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
