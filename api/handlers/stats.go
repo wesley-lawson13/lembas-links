@@ -9,9 +9,12 @@ import (
 	"github.com/wesley-lawson13/lembas-links/models"
 )
 
+// dailyClickDays is fixed at 7 because the chart on the frontend is fixed at 7 columns.
+const dailyClickDays = 7
+
 // GetStats godoc
 // @Summary      Get link statistics
-// @Description  Returns metadata (click count, expiry, active status) and the 10 most recent click events for the given slug.
+// @Description  Returns metadata (click count, expiry, active status), the 10 most recent click events, and per-day click counts for the last 7 days for the given slug.
 // @Tags         links
 // @Produce      json
 // @Param        slug path     string true "URL slug" example("one-ring-to-rule")
@@ -54,14 +57,22 @@ func (lh *LinkHandler) GetStats(c *gin.Context) {
 		clicks = []models.Click{}
 	}
 
+	dailyClicks, err := lh.store.GetDailyClicks(slug, dailyClickDays)
+	if err != nil {
+		log.Printf("failed to get daily clicks for slug %s: %v", slug, err)
+		dailyClicks = []models.DailyClickCount{}
+	}
+
 	// return the URL stats in JSON
 	c.JSON(http.StatusOK, gin.H{
 		"slug":          urlStats.Slug,
+		"short_url":     lh.cfg.BaseURL + "/" + urlStats.Slug,
 		"original":      urlStats.Original,
 		"click_count":   urlStats.ClickCount,
 		"created_at":    urlStats.CreatedAt,
 		"expires_at":    urlStats.ExpiresAt,
 		"is_active":     urlStats.IsActive,
 		"recent_clicks": clicks,
+		"daily_clicks":  dailyClicks,
 	})
 }

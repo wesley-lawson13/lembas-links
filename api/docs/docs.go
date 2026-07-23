@@ -134,7 +134,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Returns metadata (click count, expiry, active status) and the 10 most recent click events for the given slug.",
+                "description": "Returns metadata (click count, expiry, active status), the 10 most recent click events, and per-day click counts for the last 7 days for the given slug.",
                 "produces": [
                     "application/json"
                 ],
@@ -288,6 +288,19 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.DailyClickResponse": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "date": {
+                    "type": "string",
+                    "example": "2026-07-23"
+                }
+            }
+        },
         "handlers.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -357,6 +370,12 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "daily_clicks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.DailyClickResponse"
+                    }
+                },
                 "expires_at": {
                     "type": "string"
                 },
@@ -373,6 +392,10 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/handlers.ClickResponse"
                     }
+                },
+                "short_url": {
+                    "type": "string",
+                    "example": "http://localhost:8080/one-ring-to-rule"
                 },
                 "slug": {
                     "type": "string",

@@ -29,6 +29,51 @@ func (s *URLStore) RecordClick(slug, referrer, userAgent, ipAddress string) erro
 	return nil
 }
 
+// DailyClickCount is one day's click total for a slug, Date formatted "2006-01-02".
+type DailyClickCount struct {
+	Date  string `json:"date"`
+	Count int    `json:"count"`
+}
+
+// GetDailyClicks returns per-day click totals for the last days days, including
+// zero-click days; called from handlers.GetStats.
+func (s *URLStore) GetDailyClicks(slug string, days int) ([]DailyClickCount, error) {
+
+	query := `
+        SELECT d.day::date, COALESCE(c.count, 0)
+        FROM generate_series(CURRENT_DATE - ($2 - 1) * INTERVAL '1 day', CURRENT_DATE, '1 day') AS d(day)
+        LEFT JOIN (
+            SELECT clicked_at::date AS day, COUNT(*) AS count
+            FROM clicks
+            WHERE slug = $1 AND clicked_at >= CURRENT_DATE - ($2 - 1) * INTERVAL '1 day'
+            GROUP BY 1
+        ) c ON c.day = d.day::date
+        ORDER BY d.day ASC
+    `
+	rows, err := s.db.Query(query, slug, days)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get daily clicks: %w", err)
+	}
+	defer rows.Close()
+
+	dailyClicks := make([]DailyClickCount, 0, days)
+	for rows.Next() {
+
+		var day time.Time
+		var count int
+		if err := rows.Scan(&day, &count); err != nil {
+			return nil, fmt.Errorf("failed to scan daily click count: %w", err)
+		}
+
+		dailyClicks = append(dailyClicks, DailyClickCount{
+			Date:  day.Format("2006-01-02"),
+			Count: count,
+		})
+	}
+
+	return dailyClicks, nil
+}
+
 func (s *URLStore) GetClicks(slug string, limit int) ([]Click, error) {
 
 	query := `

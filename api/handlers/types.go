@@ -31,13 +31,21 @@ type ListLinksResponse struct {
 
 // StatsResponse is the response body for link statistics.
 type StatsResponse struct {
-	Slug         string          `json:"slug"          example:"one-ring-to-rule"`
-	Original     string          `json:"original"      example:"https://example.com"`
-	ClickCount   int             `json:"click_count"   example:"42"`
-	CreatedAt    time.Time       `json:"created_at"`
-	ExpiresAt    time.Time       `json:"expires_at"`
-	IsActive     bool            `json:"is_active"     example:"true"`
-	RecentClicks []ClickResponse `json:"recent_clicks"`
+	Slug         string               `json:"slug"          example:"one-ring-to-rule"`
+	ShortURL     string               `json:"short_url"     example:"http://localhost:8080/one-ring-to-rule"`
+	Original     string               `json:"original"      example:"https://example.com"`
+	ClickCount   int                  `json:"click_count"   example:"42"`
+	CreatedAt    time.Time            `json:"created_at"`
+	ExpiresAt    time.Time            `json:"expires_at"`
+	IsActive     bool                 `json:"is_active"     example:"true"`
+	RecentClicks []ClickResponse      `json:"recent_clicks"`
+	DailyClicks  []DailyClickResponse `json:"daily_clicks"`
+}
+
+// DailyClickResponse is one day's click total in a link's stats.
+type DailyClickResponse struct {
+	Date  string `json:"date"  example:"2026-07-23"`
+	Count int    `json:"count" example:"42"`
 }
 
 // ClickResponse represents a single recorded click event.
