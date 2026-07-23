@@ -11,6 +11,16 @@ services:
     volumes:
       - ./db:/db
 
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # anonymous volume so the host mount doesn't shadow the image's install
+    depends_on:
+      - api
+
   postgres:
     image: postgres:15
     environment:
