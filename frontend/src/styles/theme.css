@@ -1,0 +1,50 @@
+/* The two palettes from the approved design, keyed off data-theme on <html>
+   (set pre-paint by index.html, toggled by ThemeToggle). Everything in the app
+   is colored exclusively through these variables. */
+
+/* Parchment Study — light */
+:root[data-theme='light'] {
+  --bg: #ece1c4;
+  --card: #efe6cd;
+  --card2: #efe5cb;
+  --ink: #33291a;
+  --mut: #7a6b4f;
+  --line: #ddd1b0;
+  --dot: #cdbc94;
+  --acc: #9c7a34;
+  --acc-ink: #fbf5e4;
+  --title: #4a381c;
+  --ok: #5c7348;
+  --ok-bg: rgba(92, 115, 72, 0.12);
+  --warn: #a5522f;
+  --shadow: 0 14px 36px rgba(60, 45, 20, 0.16);
+}
+
+/* Rivendell — cool dark */
+:root[data-theme='dark'] {
+  --bg: #141a1e;
+  --card: #1a2127;
+  --card2: #1b232a;
+  --ink: #dde7ec;
+  --mut: #8a9ba6;
+  --line: #28323a;
+  --dot: #3a464e;
+  --acc: #93b7c9;
+  --acc-ink: #0f1518;
+  --title: #bcd6e2;
+  --ok: #7fb0a0;
+  --ok-bg: rgba(127, 176, 160, 0.14);
+  --warn: #c98f7a;
+  --shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+}
+
+/* Live theme flip: recolor everything with the design's soft crossfade. */
+*,
+*::before,
+*::after {
+  transition:
+    background-color 0.32s ease,
+    color 0.32s ease,
+    border-color 0.32s ease,
+    box-shadow 0.32s ease;
+}

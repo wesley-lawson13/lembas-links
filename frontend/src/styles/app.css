@@ -1,0 +1,202 @@
+/* Base styles shared by both pages: layout shell, typography, buttons, cards.
+   Screen-specific styles live in dashboard.css / stats.css. */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'EB Garamond', Georgia, serif;
+  font-size: 15px;
+  line-height: 1.5;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+a {
+  color: var(--acc);
+}
+
+/* ---- page shell ---- */
+
+.page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 18px 24px 56px;
+}
+
+.page-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+/* ---- theme toggle pill ---- */
+
+.theme-toggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.theme-toggle button {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 1;
+  border: none;
+  border-radius: 999px;
+  padding: 5px 9px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--mut);
+}
+
+.theme-toggle button.active {
+  background: var(--acc);
+  color: var(--acc-ink);
+}
+
+/* ---- typography helpers ---- */
+
+.caption {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--acc);
+}
+
+.section-label {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.muted {
+  color: var(--mut);
+}
+
+.warn {
+  color: var(--warn);
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- cards ---- */
+
+.card {
+  background: var(--card2);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 15px 17px;
+}
+
+/* ---- buttons ---- */
+
+/* Filled accent button ("Forge link"). */
+.btn-accent {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.07em;
+  color: var(--acc-ink);
+  background: var(--acc);
+  border: none;
+  border-radius: 9px;
+  padding: 0 22px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-accent:hover {
+  filter: brightness(1.08);
+}
+
+/* Outlined accent button (Copy on cards / stats header). */
+.btn-outline {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--acc);
+  background: transparent;
+  border: 1px solid var(--acc);
+  border-radius: 7px;
+  padding: 8px 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn-outline:hover {
+  background: var(--acc);
+  color: var(--acc-ink);
+}
+
+/* Tiny uppercase row action (Copy / Stats / Open / Delete on list rows). */
+.row-btn {
+  font-family: 'EB Garamond', serif;
+  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--mut);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.row-btn:hover {
+  color: var(--acc);
+  border-color: var(--acc);
+}
+
+.row-btn.row-btn-danger:hover {
+  color: var(--warn);
+  border-color: var(--warn);
+}
+
+/* ---- shared states ---- */
+
+.state-panel {
+  background: var(--card2);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 26px 24px;
+  text-align: center;
+}
+
+.state-panel .state-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--title);
+  margin: 0 0 8px;
+}
+
+.state-panel .state-body {
+  color: var(--mut);
+  margin: 0;
+}
