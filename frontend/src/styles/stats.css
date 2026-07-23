@@ -1,0 +1,307 @@
+/* Stats-page-only styles: header, badge, points-to card, metrics, chart, passages. */
+
+.back-link {
+  display: inline-block;
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--mut);
+  text-decoration: none;
+  margin-bottom: 20px;
+}
+
+.back-link:hover {
+  color: var(--acc);
+}
+
+.stats-loading {
+  padding: 8px 2px;
+  font-style: italic;
+}
+
+/* ---- header ---- */
+
+.stats-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.stats-head-main {
+  min-width: 0;
+}
+
+.stats-head h1 {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: 0.02em;
+  color: var(--title);
+  margin: 0 0 8px;
+  word-break: break-word;
+}
+
+.stats-url-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stats-url {
+  font-size: 14px;
+  line-height: 1;
+  color: var(--acc);
+}
+
+.btn-outline-sm {
+  font-size: 10px;
+  padding: 5px 10px;
+  border-radius: 6px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-radius: 20px;
+  padding: 6px 13px;
+}
+
+.badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge-active {
+  color: var(--ok);
+  background: var(--ok-bg);
+  border: 1px solid var(--ok);
+}
+
+.badge-expired {
+  color: var(--warn);
+  background: transparent;
+  border: 1px solid var(--warn);
+}
+
+/* ---- points to ---- */
+
+.points-to {
+  margin-top: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 10px;
+  padding: 12px 15px;
+}
+
+.points-to-main {
+  min-width: 0;
+}
+
+.points-to-caption {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--mut);
+  margin-bottom: 4px;
+}
+
+.points-to-url {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.points-to-open {
+  white-space: nowrap;
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--acc);
+  text-decoration: none;
+}
+
+.points-to-open:hover {
+  text-decoration: underline;
+}
+
+/* ---- metrics ---- */
+
+.metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.metric {
+  background: var(--card2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px 15px;
+}
+
+.metric-value {
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.metric-value-big {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--title);
+}
+
+.metric-label {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 9.5px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--mut);
+  margin-top: 8px;
+}
+
+/* ---- chart ---- */
+
+.chart {
+  margin-top: 22px;
+}
+
+.chart-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 14px;
+}
+
+.chart-track {
+  display: flex;
+  align-items: flex-end;
+  gap: 11px;
+  height: 104px;
+}
+
+.chart-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  height: 100%;
+}
+
+.chart-count {
+  font-family: 'EB Garamond', serif;
+  font-weight: 600;
+  font-size: 11.5px;
+  color: var(--ink);
+  margin-bottom: 5px;
+}
+
+.chart-count-max {
+  color: var(--title);
+}
+
+.chart-bar {
+  width: 100%;
+  background: var(--acc);
+  border-radius: 4px 4px 0 0;
+}
+
+.chart-labels {
+  display: flex;
+  gap: 11px;
+  margin-top: 7px;
+}
+
+.chart-label {
+  flex: 1;
+  text-align: center;
+  font-size: 10.5px;
+  color: var(--mut);
+}
+
+/* ---- recent passages ---- */
+
+.passages {
+  margin-top: 26px;
+}
+
+.passages-title {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+
+.passages-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.15fr 1.15fr 0.95fr;
+  gap: 0 8px;
+  padding: 11px 2px;
+  border-bottom: 1px solid var(--line);
+  align-items: center;
+  font-size: 13px;
+}
+
+.passages-head {
+  padding: 0 2px 9px;
+}
+
+.passages-head div {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--mut);
+}
+
+.passages-right {
+  text-align: right;
+}
+
+.passages-direct {
+  font-style: italic;
+}
+
+.passages-ip {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.passages-empty {
+  padding: 14px 2px;
+  font-style: italic;
+}
+
+.passages-foot {
+  text-align: center;
+  margin-top: 14px;
+  font-size: 12.5px;
+  font-style: italic;
+}
