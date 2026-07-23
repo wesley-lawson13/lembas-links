@@ -25,9 +25,7 @@ func validateTargetURL(raw string) error {
 		return errors.New("invalid url")
 	}
 
-	switch strings.ToLower(u.Scheme) {
-	case "http", "https":
-	default:
+    if method := strings.ToLower(u.Scheme); method != "http" && method != "https" {
 		return errors.New("url scheme must be http or https")
 	}
 
