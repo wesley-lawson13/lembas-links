@@ -37,6 +37,15 @@ definitions:
         example: one-ring-to-rule
         type: string
     type: object
+  handlers.DailyClickResponse:
+    properties:
+      count:
+        example: 42
+        type: integer
+      date:
+        example: "2026-07-23"
+        type: string
+    type: object
   handlers.ErrorResponse:
     properties:
       error:
@@ -84,6 +93,10 @@ definitions:
         type: integer
       created_at:
         type: string
+      daily_clicks:
+        items:
+          $ref: '#/definitions/handlers.DailyClickResponse'
+        type: array
       expires_at:
         type: string
       is_active:
@@ -96,6 +109,9 @@ definitions:
         items:
           $ref: '#/definitions/handlers.ClickResponse'
         type: array
+      short_url:
+        example: http://localhost:8080/one-ring-to-rule
+        type: string
       slug:
         example: one-ring-to-rule
         type: string
@@ -215,8 +231,9 @@ paths:
       - links
   /links/{slug}/stats:
     get:
-      description: Returns metadata (click count, expiry, active status) and the 10
-        most recent click events for the given slug.
+      description: Returns metadata (click count, expiry, active status), the 10 most
+        recent click events, and per-day click counts for the last 7 days for the
+        given slug.
       parameters:
       - description: URL slug
         example: '"one-ring-to-rule"'

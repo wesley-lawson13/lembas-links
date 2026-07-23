@@ -30,6 +30,7 @@ A Lord of the Rings themed URL shortener built in Go (Gin) with Redis caching, A
 - Redis-based rate limiting per IP and per API key, plus a stricter dedicated limit on session-key minting
 - Click analytics: timestamp, referrer, user agent, and IP on every redirect asynchronously
 - CORS support for browser-based frontends (configurable allowed origins)
+- React frontend (Vite + TypeScript) with a LOTR-themed dashboard and per-link analytics — anonymous key minted silently on first visit, light/dark "Parchment/Rivendell" theme
 - Interactive Swagger/OpenAPI docs served at `/swagger/index.html`
 - Fully containerized with Docker Compose
 - Automatic database migrations on startup
@@ -139,6 +140,7 @@ curl -X DELETE http://localhost:8080/links/gandalf-shadow-flame \
 | Layer | Technology |
 |---|---|
 | API | Go 1.25, Gin |
+| Frontend | React 19, TypeScript, Vite, react-router |
 | Database | Postgres 15 |
 | Cache + Rate Limiting | Redis 7 |
 | NLP Pipeline | Python 3.11, spaCy, pandas, RAKE, rapidfuzz, Claude Haiku API |
@@ -189,9 +191,17 @@ Inserts a fixed test API key (`test-api-key-123`) for local development. Alterna
 curl http://localhost:8080/health
 ```
 
-### 7. (Optional) Connect a local frontend
+### 7. Open the frontend
 
-If you're running a frontend dev server against this API, set `CORS_ALLOWED_ORIGINS` in `.env` to its origin (e.g. `http://localhost:5173`) and restart the API so the CORS middleware picks it up.
+`make run` also starts the React frontend. Set up its env file once:
+
+```bash
+cp frontend/.env.example frontend/.env
+```
+
+then open `http://localhost:5173`. An anonymous API key is minted for you silently on first visit — no login. Make sure `CORS_ALLOWED_ORIGINS` in the root `.env` includes `http://localhost:5173` so the API accepts the browser's requests.
+
+To run the frontend outside Docker instead: `cd frontend && npm install && npm run dev`.
 
 ---
 
@@ -314,17 +324,21 @@ Redirect to the original URL. Checks Redis cache first, falls back to Postgres. 
 ---
 
 #### `GET /links/:slug/stats` — Protected
-Get analytics for a Lord of the Rings link. Only the API key that created the link can view its stats; any other key (or a nonexistent slug) returns `404`.
+Get analytics for a Lord of the Rings link. Only the API key that created the link can view its stats; any other key (or a nonexistent slug) returns `404`. `daily_clicks` always contains exactly 7 entries (oldest → newest, UTC day buckets, zero-count days included) — it powers the frontend's 7-day chart.
 
 **Response `200`:**
 ```json
 {
     "slug": "gandalf-shadow-flame",
+    "short_url": "http://localhost:8080/gandalf-shadow-flame",
     "original": "https://your-long-url.com",
     "click_count": 42,
     "created_at": "2026-04-06T16:00:00Z",
     "expires_at": "2026-05-06T16:00:00Z",
     "is_active": true,
+    "daily_clicks": [
+        { "date": "2026-04-09", "count": 12 }
+    ],
     "recent_clicks": [
         {
             "id": "abc123",

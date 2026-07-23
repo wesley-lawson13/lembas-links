@@ -167,6 +167,108 @@ func TestRecordAndGetClicks(t *testing.T) {
 	}
 }
 
+// TestGetDailyClicks verifies GetDailyClicks returns exactly 7 zero-filled
+// per-day totals, oldest to newest, counting only clicks inside the window.
+func TestGetDailyClicks(t *testing.T) {
+	db := setupTestDB(t)
+	store := NewURLStore(db)
+	cleanupURLs(t, db, "test-daily-clicks-key")
+
+	t.Run("backdated clicks land in the right buckets", func(t *testing.T) {
+		slug, err := store.GetSlug()
+		if err != nil {
+			t.Fatalf("GetSlug failed: %v", err)
+		}
+		if err := store.CreateURL(slug, "https://example.com", "test-daily-clicks-key", time.Now().Add(30*24*time.Hour)); err != nil {
+			t.Fatalf("CreateURL failed: %v", err)
+		}
+
+		// RecordClick relies on the clicked_at NOW() default so it can't
+		// backdate — insert clicks with explicit timestamps directly.
+		inserts := []struct {
+			interval string
+			count    int
+		}{
+			{"0 days", 2}, // today
+			{"3 days", 3}, // inside the 7-day window
+			{"8 days", 1}, // outside the window, must not be counted
+		}
+		for _, ins := range inserts {
+			for i := 0; i < ins.count; i++ {
+				_, err := db.Exec(
+					"INSERT INTO clicks (slug, clicked_at, referrer, user_agent, ip_address) VALUES ($1, NOW() - $2::interval, '', '', '')",
+					slug, ins.interval,
+				)
+				if err != nil {
+					t.Fatalf("failed to insert backdated click (%s): %v", ins.interval, err)
+				}
+			}
+		}
+
+		daily, err := store.GetDailyClicks(slug, 7)
+		if err != nil {
+			t.Fatalf("GetDailyClicks failed: %v", err)
+		}
+		if len(daily) != 7 {
+			t.Fatalf("expected 7 entries, got %d", len(daily))
+		}
+
+		// dates strictly ascending, last entry is today's UTC date
+		for i := 1; i < len(daily); i++ {
+			if daily[i].Date <= daily[i-1].Date {
+				t.Errorf("expected strictly ascending dates, got %s then %s", daily[i-1].Date, daily[i].Date)
+			}
+		}
+		today := time.Now().UTC().Format("2006-01-02")
+		if daily[6].Date != today {
+			t.Errorf("expected last entry to be today %s, got %s", today, daily[6].Date)
+		}
+
+		// index 6 = today (2 clicks), index 3 = 3 days ago (3 clicks), all
+		// others zero; total 5 proves the 8-day-old click is nowhere counted
+		total := 0
+		for i, d := range daily {
+			total += d.Count
+			want := 0
+			switch i {
+			case 3:
+				want = 3
+			case 6:
+				want = 2
+			}
+			if d.Count != want {
+				t.Errorf("entry %d (%s): expected count %d, got %d", i, d.Date, want, d.Count)
+			}
+		}
+		if total != 5 {
+			t.Errorf("expected 5 clicks in window (8-day-old click excluded), got %d", total)
+		}
+	})
+
+	t.Run("slug with zero clicks returns 7 zero entries", func(t *testing.T) {
+		slug, err := store.GetSlug()
+		if err != nil {
+			t.Fatalf("GetSlug failed: %v", err)
+		}
+		if err := store.CreateURL(slug, "https://example.com", "test-daily-clicks-key", time.Now().Add(30*24*time.Hour)); err != nil {
+			t.Fatalf("CreateURL failed: %v", err)
+		}
+
+		daily, err := store.GetDailyClicks(slug, 7)
+		if err != nil {
+			t.Fatalf("GetDailyClicks failed: %v", err)
+		}
+		if len(daily) != 7 {
+			t.Fatalf("expected 7 entries for clickless slug, got %d", len(daily))
+		}
+		for i, d := range daily {
+			if d.Count != 0 {
+				t.Errorf("entry %d (%s): expected count 0, got %d", i, d.Date, d.Count)
+			}
+		}
+	})
+}
+
 func TestListURLsByAPIKey(t *testing.T) {
 	db := setupTestDB(t)
 	store := NewURLStore(db)

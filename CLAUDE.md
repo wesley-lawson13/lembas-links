@@ -23,7 +23,9 @@ make logs       # Stream Docker Compose logs
 make generate   # Re-run the NLP slug generation pipeline
 ```
 
-Local setup flow: `cp .env.example .env` → fill in values → `make run` → `make seed` → `make seed-dev`
+Local setup flow: `cp .env.example .env` → fill in values → `cp frontend/.env.example frontend/.env` → `make run` → `make seed` → `make seed-dev`
+
+Frontend dev outside Docker: `cd frontend && npm install && npm run dev` (Vite dev server on `http://localhost:5173`; `npm run build` type-checks and bundles).
 
 To run a single Go test:
 ```bash
@@ -32,7 +34,7 @@ cd api && go test ./... -run TestFunctionName
 
 ## Architecture
 
-The system has three layers: a Go API, a PostgreSQL database, and a one-time NLP preprocessing pipeline.
+The system has four layers: a Go API, a PostgreSQL database, a React frontend, and a one-time NLP preprocessing pipeline.
 
 ### Go API (`api/`)
 
@@ -53,6 +55,16 @@ Organized into four packages:
 **Create link (`POST /links`):** API key auth → rate limit check → select least-used slug from `quotes` table → insert into `urls` → increment `quotes.use_count` → return short URL.
 
 **Delete (`DELETE /links/:slug`):** Soft-delete (sets `is_active = FALSE`) + Redis cache invalidation.
+
+### Frontend (`frontend/`)
+
+Vite + React 19 + TypeScript SPA, served by the Vite dev server (compose service on port 5173), calling the API directly over CORS. No accounts: `src/api.ts` silently mints an anonymous key via `POST /session` on first use, caches it in localStorage (`lembas_api_key`), sends it as `Authorization: Bearer`, and on a 401 discards it, re-mints, and retries once. All fetches go through one typed `request<T>` core; response shapes are mirrored in `src/types.ts` and the frontend never constructs short URLs (always renders `short_url` from responses).
+
+- **Routes** (react-router): `/` → `pages/Dashboard.tsx` (forge form, freshly-forged card, fellowship list); `/stats/:slug` → `pages/Stats.tsx` (metrics, 7-day chart from `daily_clicks`, recent passages table)
+- **Theming** — two palettes (Parchment light / Rivendell dark) as CSS custom properties in `src/styles/theme.css`, keyed off `data-theme` on `<html>`: set pre-paint by an inline script in `index.html` (localStorage `lembas_theme` override, else `prefers-color-scheme`), toggled via `src/useTheme.ts`. All colors go through the variables — never hardcode
+- **Styles** — plain CSS: `app.css` (shared shell/buttons/cards), `dashboard.css`/`stats.css` (per-page); no CSS framework
+- **`src/format.ts`** — presentation helpers (expiry countdowns, date/timestamp formats, user-agent + referrer summarizers)
+- `frontend/.env.example` — `VITE_API_BASE_URL` (browser-facing API origin; the API's `CORS_ALLOWED_ORIGINS` must include the frontend origin)
 
 ### Database Schema
 
