@@ -16,6 +16,29 @@ const docTemplate = `{
     "basePath": "{{.BasePath}}",
     "paths": {
         "/links": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Returns a summary of every non-deleted link owned by the authenticated API key, including expired links (expiry stops redirects, not the owner's dashboard).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "links"
+                ],
+                "summary": "List the caller's own links",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ListLinksResponse"
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {
@@ -52,7 +75,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "missing or invalid request body",
+                        "description": "missing body, or url is empty, malformed, non-http(s), or too long",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -73,7 +96,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Soft-deletes the link (sets is_active = false) and evicts it from the Redis cache. The slug is not returned to the pool.",
+                "description": "Soft-deletes the link (sets is_active = false) and evicts it from the Redis cache. The slug is not returned to the pool. Only the link's owner may delete it.",
                 "produces": [
                     "application/json"
                 ],
@@ -137,7 +160,33 @@ const docTemplate = `{
                         }
                     },
                     "404": {
-                        "description": "slug not found or expired",
+                        "description": "slug not found, deleted, or not owned by caller",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/session": {
+            "post": {
+                "description": "Generates a new random API key with no login/signup required. The key's expiry slides forward on every authenticated request, so an active visitor never loses access; only abandoned keys age out.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "session"
+                ],
+                "summary": "Mint an anonymous session key",
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.SessionResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "internal error (key generation or DB failure)",
                         "schema": {
                             "$ref": "#/definitions/handlers.ErrorResponse"
                         }
@@ -216,10 +265,6 @@ const docTemplate = `{
         "handlers.CreateLinkRequest": {
             "type": "object",
             "properties": {
-                "api_key": {
-                    "type": "string",
-                    "example": "my-api-key"
-                },
                 "url": {
                     "type": "string",
                     "example": "https://example.com/some/very/long/path"
@@ -249,6 +294,56 @@ const docTemplate = `{
                 "error": {
                     "type": "string",
                     "example": "slug not found"
+                }
+            }
+        },
+        "handlers.LinkSummary": {
+            "type": "object",
+            "properties": {
+                "click_count": {
+                    "type": "integer",
+                    "example": 42
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "expires_at": {
+                    "type": "string"
+                },
+                "original": {
+                    "type": "string",
+                    "example": "https://example.com"
+                },
+                "short_url": {
+                    "type": "string",
+                    "example": "http://localhost:8080/one-ring-to-rule"
+                },
+                "slug": {
+                    "type": "string",
+                    "example": "one-ring-to-rule"
+                }
+            }
+        },
+        "handlers.ListLinksResponse": {
+            "type": "object",
+            "properties": {
+                "links": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/handlers.LinkSummary"
+                    }
+                }
+            }
+        },
+        "handlers.SessionResponse": {
+            "type": "object",
+            "properties": {
+                "api_key": {
+                    "type": "string",
+                    "example": "a1b2c3d4..."
+                },
+                "expires_at": {
+                    "type": "string"
                 }
             }
         },

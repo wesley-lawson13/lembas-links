@@ -10,7 +10,7 @@ func (s *URLStore) GetStats(slug string) (*URLStats, error) {
 	urlStats := &URLStats{}
 
 	query := `
-        SELECT slug, original, click_count, expires_at, created_at, is_active
+        SELECT slug, original, api_key, click_count, expires_at, created_at, is_active
         FROM urls
         WHERE slug = $1
     `
@@ -18,6 +18,7 @@ func (s *URLStore) GetStats(slug string) (*URLStats, error) {
 	err := s.db.QueryRow(query, slug).Scan(
 		&urlStats.Slug,
 		&urlStats.Original,
+		&urlStats.APIKey,
 		&urlStats.ClickCount,
 		&urlStats.ExpiresAt,
 		&urlStats.CreatedAt,

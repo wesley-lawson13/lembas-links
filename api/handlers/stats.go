@@ -3,9 +3,9 @@ package handlers
 import (
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/wesley-lawson13/lembas-links/middleware"
 	"github.com/wesley-lawson13/lembas-links/models"
 )
 
@@ -16,7 +16,7 @@ import (
 // @Produce      json
 // @Param        slug path     string true "URL slug" example("one-ring-to-rule")
 // @Success      200  {object} StatsResponse
-// @Failure      404  {object} ErrorResponse "slug not found or expired"
+// @Failure      404  {object} ErrorResponse "slug not found, deleted, or not owned by caller"
 // @Security     ApiKeyAuth
 // @Router       /links/{slug}/stats [get]
 func (lh *LinkHandler) GetStats(c *gin.Context) {
@@ -31,8 +31,20 @@ func (lh *LinkHandler) GetStats(c *gin.Context) {
 		return
 	}
 
-	if !urlStats.IsActive || time.Now().After(urlStats.ExpiresAt) {
-		c.JSON(http.StatusNotFound, gin.H{"error": "url expired"})
+	callerKey := models.HashKey(middleware.ExtractBearerToken(c.GetHeader("Authorization")))
+	if urlStats.APIKey != callerKey {
+		// Same message as a nonexistent slug so this endpoint never leaks
+		// which slugs exist versus which you don't own.
+		c.JSON(http.StatusNotFound, gin.H{"error": "stats not found"})
+		return
+	}
+
+	// Expired links intentionally still return stats: expiry stops redirects,
+	// not the owner's analytics. Only owner-deleted (is_active = FALSE) links
+	// are hidden, matching the list endpoint's filter — with the same message
+	// as above so deletion state isn't leaked either.
+	if !urlStats.IsActive {
+		c.JSON(http.StatusNotFound, gin.H{"error": "stats not found"})
 		return
 	}
 

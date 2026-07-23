@@ -4,8 +4,7 @@ import "time"
 
 // CreateLinkRequest is the request body for creating a short link.
 type CreateLinkRequest struct {
-	URL    string `json:"url"     example:"https://example.com/some/very/long/path"`
-	APIKey string `json:"api_key" example:"my-api-key"`
+	URL string `json:"url" example:"https://example.com/some/very/long/path"`
 }
 
 // CreateLinkResponse is the response body returned when a link is successfully created.
@@ -13,6 +12,21 @@ type CreateLinkResponse struct {
 	Slug     string `json:"slug"      example:"one-ring-to-rule"`
 	ShortURL string `json:"short_url" example:"http://localhost:8080/one-ring-to-rule"`
 	Original string `json:"original"  example:"https://example.com/some/very/long/path"`
+}
+
+// LinkSummary is one entry in a caller's link list.
+type LinkSummary struct {
+	Slug       string    `json:"slug"        example:"one-ring-to-rule"`
+	ShortURL   string    `json:"short_url"   example:"http://localhost:8080/one-ring-to-rule"`
+	Original   string    `json:"original"    example:"https://example.com"`
+	ClickCount int       `json:"click_count" example:"42"`
+	CreatedAt  time.Time `json:"created_at"`
+	ExpiresAt  time.Time `json:"expires_at"`
+}
+
+// ListLinksResponse is the response body for listing a caller's own links.
+type ListLinksResponse struct {
+	Links []LinkSummary `json:"links"`
 }
 
 // StatsResponse is the response body for link statistics.
@@ -34,6 +48,13 @@ type ClickResponse struct {
 	Referrer  string    `json:"referrer"   example:"https://google.com"`
 	UserAgent string    `json:"user_agent" example:"Mozilla/5.0"`
 	IPAddress string    `json:"ip_address" example:"127.0.0.1"`
+}
+
+// SessionResponse is the response body returned when a new anonymous
+// session key is minted.
+type SessionResponse struct {
+	APIKey    string    `json:"api_key"    example:"a1b2c3d4..."`
+	ExpiresAt time.Time `json:"expires_at"`
 }
 
 // ErrorResponse is a generic error envelope.

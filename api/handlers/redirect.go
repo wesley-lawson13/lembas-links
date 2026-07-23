@@ -41,13 +41,11 @@ func (lh *LinkHandler) Redirect(c *gin.Context) {
 		return
 	}
 
-	// expired url
+	// expired url — reject the redirect but leave the row untouched: is_active
+	// is reserved for owner deletion, and expiry is already enforced here by
+	// the timestamp check (and in Redis by the cache TTL), so the owner keeps
+	// seeing expired links in their list and stats
 	if time.Now().After(original.ExpiresAt) {
-
-		if err = lh.store.DeleteURL(slug); err != nil {
-			log.Printf("failed to delete slug %s: %v", slug, err)
-		}
-
 		c.JSON(http.StatusGone, gin.H{"error": "url expired"})
 		return
 	}
