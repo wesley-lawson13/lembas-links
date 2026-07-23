@@ -91,10 +91,16 @@ printf '%s' "$body" | grep -q "\"slug\":\"$SLUG\"" \
 pass "GET /links -> 200, slug present in list"
 
 # --- 5. stats with the owning key ---
-status=$(curl -s -o /dev/null -w '%{http_code}' \
+resp=$(curl -s -w '\n%{http_code}' \
     "$API_URL/links/$SLUG/stats" -H "Authorization: Bearer $KEY_A")
-[ "$status" = "200" ] || fail "GET /links/:slug/stats (owner)" "expected 200, got $status"
-pass "GET /links/$SLUG/stats (key A) -> 200"
+status=$(printf '%s' "$resp" | tail -n1)
+body=$(printf '%s' "$resp" | sed '$d')
+[ "$status" = "200" ] || fail "GET /links/:slug/stats (owner)" "expected 200, got $status: $body"
+printf '%s' "$body" | grep -q '"daily_clicks":\[' \
+    || fail "GET /links/:slug/stats (owner)" "no daily_clicks array in response: $body"
+printf '%s' "$body" | grep -q '"short_url":' \
+    || fail "GET /links/:slug/stats (owner)" "no short_url field in response: $body"
+pass "GET /links/$SLUG/stats (key A) -> 200 with daily_clicks and short_url"
 
 # --- 6. stats with a different key must 404 (ownership isolation) ---
 resp=$(curl -s -w '\n%{http_code}' -X POST "$API_URL/session")

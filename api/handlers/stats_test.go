@@ -127,6 +127,56 @@ func TestGetStats_OwnerSeesExpiredLink(t *testing.T) {
 	}
 }
 
+// TestGetStats_IncludesDailyClicksAndShortURL verifies the owner's stats
+// response carries a 7-entry daily_clicks series and a short_url built from
+// the configured base URL.
+func TestGetStats_IncludesDailyClicksAndShortURL(t *testing.T) {
+	db := setupStatsTestDB(t)
+	store := models.NewURLStore(db)
+	cfg := &config.Config{DefaultTTLDays: 30, RecentClicksLimit: 10, BaseURL: "http://localhost:8080"}
+	router := newStatsTestRouter(store, cfg)
+
+	rawKey := "stats-test-daily-clicks-key"
+	t.Cleanup(func() {
+		db.Exec("DELETE FROM clicks WHERE slug IN (SELECT slug FROM urls WHERE api_key = $1)", models.HashKey(rawKey))
+		db.Exec("DELETE FROM urls WHERE api_key = $1", models.HashKey(rawKey))
+	})
+
+	slug, err := store.GetSlug()
+	if err != nil {
+		t.Fatalf("GetSlug failed: %v", err)
+	}
+	if err := store.CreateURL(slug, "https://example.com", models.HashKey(rawKey), time.Now().Add(30*24*time.Hour)); err != nil {
+		t.Fatalf("CreateURL failed: %v", err)
+	}
+
+	w := doStatsRequest(router, slug, "Bearer "+rawKey)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 for owning key, got %d", w.Code)
+	}
+
+	var body struct {
+		ShortURL    string `json:"short_url"`
+		DailyClicks []struct {
+			Date  string `json:"date"`
+			Count int    `json:"count"`
+		} `json:"daily_clicks"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("failed to decode stats response: %v", err)
+	}
+
+	if len(body.DailyClicks) != 7 {
+		t.Errorf("expected 7 daily_clicks entries, got %d", len(body.DailyClicks))
+	}
+	wantShortURL := cfg.BaseURL + "/" + slug
+	if body.ShortURL == "" {
+		t.Error("expected non-empty short_url in stats response")
+	} else if body.ShortURL != wantShortURL {
+		t.Errorf("expected short_url %q, got %q", wantShortURL, body.ShortURL)
+	}
+}
+
 // TestRedirect_ExpiredLinkReturns410AndStaysActive verifies that redirecting
 // an expired slug returns 410 without soft-deleting the row, so the link
 // keeps appearing in the owner's list and stats.
