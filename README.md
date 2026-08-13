@@ -394,13 +394,14 @@ Most tests are unit tests with no external dependencies. A few (in `models`, `mi
 ### Running tests
 
 ```bash
-make test        # cd api && go test ./models/... -v
-make test-rate    # cd api && go test ./middleware/... -v
+make test           # cd api && go test ./models/... -v
+make test-rate      # cd api && go test ./middleware/... -v
+make test-handlers  # cd api && go test ./handlers/... -v
 ```
 
-To run the full suite (all packages, including `handlers`):
+To run the full suite (all packages):
 ```bash
-cd api && go test ./...
+make test-all       # cd api && go test ./... -v
 ```
 
 To run a single test:

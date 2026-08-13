@@ -32,6 +32,37 @@ func setupStatsTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
+// seedURL inserts a url row owned by hashedKey under a least-used quote slug,
+// standing in for the removed store.GetSlug + store.CreateURL pair. Called from
+// the handler tests that need an existing link to request. Unlike the old
+// GetSlug, it skips slugs already taken in urls: nothing here bumps use_count,
+// so two seeds in one test would otherwise draw the same slug and collide.
+func seedURL(t *testing.T, db *sql.DB, hashedKey string, expiresAt time.Time) string {
+	t.Helper()
+
+	var slug string
+	err := db.QueryRow(`
+        SELECT q.slug
+        FROM quotes q
+        WHERE NOT EXISTS (SELECT 1 FROM urls u WHERE u.slug = q.slug)
+        ORDER BY q.use_count, RANDOM()
+        LIMIT 1
+    `).Scan(&slug)
+	if err != nil {
+		t.Fatalf("failed to pick a test slug: %v", err)
+	}
+
+	_, err = db.Exec(`
+        INSERT INTO urls (slug, original, api_key, expires_at)
+        VALUES ($1, $2, $3, $4)
+    `, slug, "https://example.com", hashedKey, expiresAt)
+	if err != nil {
+		t.Fatalf("failed to seed test url %q: %v", slug, err)
+	}
+
+	return slug
+}
+
 func newStatsTestRouter(store *models.URLStore, cfg *config.Config) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	lh := NewLinkHandler(store, nil, cfg)
@@ -63,13 +94,7 @@ func TestGetStats_OwnershipMismatchReturns404(t *testing.T) {
 		db.Exec("DELETE FROM urls WHERE api_key = $1", models.HashKey(rawKeyA))
 	})
 
-	slug, err := store.GetSlug()
-	if err != nil {
-		t.Fatalf("GetSlug failed: %v", err)
-	}
-	if err := store.CreateURL(slug, "https://example.com", models.HashKey(rawKeyA), time.Now().Add(30*24*time.Hour)); err != nil {
-		t.Fatalf("CreateURL failed: %v", err)
-	}
+	slug := seedURL(t, db, models.HashKey(rawKeyA), time.Now().Add(30*24*time.Hour))
 
 	w := doStatsRequest(router, slug, "Bearer "+rawKeyB)
 	if w.Code != http.StatusNotFound {
@@ -98,13 +123,7 @@ func TestGetStats_OwnerSeesExpiredLink(t *testing.T) {
 		db.Exec("DELETE FROM urls WHERE api_key = $1", models.HashKey(rawKeyA))
 	})
 
-	slug, err := store.GetSlug()
-	if err != nil {
-		t.Fatalf("GetSlug failed: %v", err)
-	}
-	if err := store.CreateURL(slug, "https://example.com", models.HashKey(rawKeyA), time.Now().Add(-24*time.Hour)); err != nil {
-		t.Fatalf("CreateURL failed: %v", err)
-	}
+	slug := seedURL(t, db, models.HashKey(rawKeyA), time.Now().Add(-24*time.Hour))
 
 	w := doStatsRequest(router, slug, "Bearer "+rawKeyA)
 	if w.Code != http.StatusOK {
@@ -142,13 +161,7 @@ func TestGetStats_IncludesDailyClicksAndShortURL(t *testing.T) {
 		db.Exec("DELETE FROM urls WHERE api_key = $1", models.HashKey(rawKey))
 	})
 
-	slug, err := store.GetSlug()
-	if err != nil {
-		t.Fatalf("GetSlug failed: %v", err)
-	}
-	if err := store.CreateURL(slug, "https://example.com", models.HashKey(rawKey), time.Now().Add(30*24*time.Hour)); err != nil {
-		t.Fatalf("CreateURL failed: %v", err)
-	}
+	slug := seedURL(t, db, models.HashKey(rawKey), time.Now().Add(30*24*time.Hour))
 
 	w := doStatsRequest(router, slug, "Bearer "+rawKey)
 	if w.Code != http.StatusOK {
@@ -197,13 +210,7 @@ func TestRedirect_ExpiredLinkReturns410AndStaysActive(t *testing.T) {
 		db.Exec("DELETE FROM urls WHERE api_key = $1", models.HashKey(rawKey))
 	})
 
-	slug, err := store.GetSlug()
-	if err != nil {
-		t.Fatalf("GetSlug failed: %v", err)
-	}
-	if err := store.CreateURL(slug, "https://example.com", models.HashKey(rawKey), time.Now().Add(-24*time.Hour)); err != nil {
-		t.Fatalf("CreateURL failed: %v", err)
-	}
+	slug := seedURL(t, db, models.HashKey(rawKey), time.Now().Add(-24*time.Hour))
 
 	req := httptest.NewRequest(http.MethodGet, "/"+slug, nil)
 	w := httptest.NewRecorder()

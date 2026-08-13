@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: run stop build test test-rate e2e seed seed-dev migrate logs generate
+.PHONY: run stop build test test-rate test-handlers test-all e2e seed seed-dev migrate logs generate
 
 run:
 	docker compose up --build
@@ -17,6 +17,13 @@ test:
 
 test-rate:
 	cd api && go test ./middleware/... -v
+
+# Needs both TEST_DATABASE_URL and TEST_REDIS_URL, or its cases skip
+test-handlers:
+	cd api && go test ./handlers/... -v
+
+test-all:
+	cd api && go test ./... -v
 
 # End-to-end smoke test over real HTTP — assumes the stack is up (make run)
 e2e:

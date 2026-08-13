@@ -119,13 +119,7 @@ func TestDeleteLink_OwnershipMismatchReturns404(t *testing.T) {
 		db.Exec("DELETE FROM urls WHERE api_key = $1", models.HashKey(rawKeyA))
 	})
 
-	slug, err := store.GetSlug()
-	if err != nil {
-		t.Fatalf("GetSlug failed: %v", err)
-	}
-	if err := store.CreateURL(slug, "https://example.com", models.HashKey(rawKeyA), time.Now().Add(30*24*time.Hour)); err != nil {
-		t.Fatalf("CreateURL failed: %v", err)
-	}
+	slug := seedURL(t, db, models.HashKey(rawKeyA), time.Now().Add(30*24*time.Hour))
 
 	w := doDeleteRequest(router, slug, "Bearer "+rawKeyB)
 	if w.Code != http.StatusNotFound {

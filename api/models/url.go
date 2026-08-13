@@ -26,7 +26,7 @@ func slugForUseCount(base string, useCount int) string {
 // normal operation; the bounded retry only guards the pathological case where a
 // computed "base-N" happens to equal a different quote's clean slug. Because the
 // base pool is finite but reusable this way, allocation never exhausts.
-// Called from handlers.CreateLink, replacing the old GetSlug + CreateURL two-step.
+// Called from handlers.CreateLink; replaces the old GetSlug + CreateURL two-step.
 func (s *URLStore) AllocateURL(original, apiKey string, expiresAt time.Time) (string, error) {
 
 	const maxAttempts = 3
@@ -72,41 +72,6 @@ func (s *URLStore) AllocateURL(original, apiKey string, expiresAt time.Time) (st
 	}
 
 	return "", fmt.Errorf("failed to allocate a unique slug after %d attempts", maxAttempts)
-}
-
-func (s *URLStore) GetSlug() (string, error) {
-
-	var slug string
-
-	query := `
-        SELECT slug
-        FROM quotes
-        WHERE use_count = (SELECT MIN(use_count) FROM quotes)
-        ORDER BY RANDOM()
-        LIMIT 1
-    `
-
-	err := s.db.QueryRow(query).Scan(&slug)
-	if err != nil {
-		return "", fmt.Errorf("failed to get slug: %w", err)
-	}
-
-	return slug, nil
-}
-
-func (s *URLStore) CreateURL(slug, original, apiKey string, expiresAt time.Time) error {
-
-	query := `
-        INSERT INTO urls (slug, original, api_key, expires_at)
-        VALUES ($1, $2, $3, $4)
-    `
-
-	_, err := s.db.Exec(query, slug, original, apiKey, expiresAt)
-	if err != nil {
-		return fmt.Errorf("failed to create new url: %w", err)
-	}
-
-	return nil
 }
 
 // ListURLsByAPIKey returns the caller's own active links, matched by hashing

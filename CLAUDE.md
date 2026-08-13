@@ -16,6 +16,8 @@ make stop       # Stop all services
 make build      # Build Docker images only
 make test       # Run model tests (cd api && go test ./models/... -v)
 make test-rate  # Run middleware tests (cd api && go test ./middleware/... -v)
+make test-handlers # Run handler tests (cd api && go test ./handlers/... -v)
+make test-all   # Run every Go package (cd api && go test ./... -v)
 make migrate    # Run database migrations via golang-migrate
 make seed       # Load pre-generated LOTR slug pool into Postgres
 make seed-dev   # Insert a test API key for local development
@@ -42,7 +44,7 @@ Organized into four packages:
 
 - **`config/`** — Loads all env vars with defaults (DB URL, Redis URL, port, rate limits, TTL)
 - **`db/`** — PostgreSQL pool (25 max open, retry on startup) and Redis client initialization
-- **`models/`** — All database operations via a `URLStore` struct wrapping `*sql.DB`. Each file maps to a table: `url.go` (CRUD), `quote.go` (slug pool), `stats.go`/`clicks.go` (analytics), `api_key.go` (auth)
+- **`models/`** — All database operations via a `URLStore` struct wrapping `*sql.DB`. Each file maps to a table: `url.go` (CRUD + slug allocation from the quote pool), `stats.go`/`clicks.go` (analytics), `api_key.go` (auth)
 - **`handlers/`** — Gin handlers: `links.go` (create/delete), `redirect.go` (slug resolution + async click tracking), `stats.go` (analytics)
 - **`middleware/`** — `auth.go` validates API keys against the DB; `rate.go` enforces IP-based (60/min) and API-key-based (120/min) limits using Redis counters
 

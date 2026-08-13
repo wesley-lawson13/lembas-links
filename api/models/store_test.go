@@ -34,35 +34,35 @@ func cleanupURLs(t *testing.T, db *sql.DB, apiKey string) {
 	})
 }
 
-func TestGetSlug(t *testing.T) {
-	db := setupTestDB(t)
-	store := NewURLStore(db)
+// seedURL inserts a url row for the given api_key under a least-used quote slug,
+// standing in for the removed store.GetSlug + store.CreateURL pair. Called from
+// the model tests that need a pre-existing link to act on. Unlike the old
+// GetSlug, it skips slugs already taken in urls: nothing here bumps use_count,
+// so two seeds in one test would otherwise draw the same slug and collide.
+func seedURL(t *testing.T, db *sql.DB, original, apiKey string, expiresAt time.Time) string {
+	t.Helper()
 
-	slug, err := store.GetSlug()
+	var slug string
+	err := db.QueryRow(`
+        SELECT q.slug
+        FROM quotes q
+        WHERE NOT EXISTS (SELECT 1 FROM urls u WHERE u.slug = q.slug)
+        ORDER BY q.use_count, RANDOM()
+        LIMIT 1
+    `).Scan(&slug)
 	if err != nil {
-		t.Fatalf("GetSlug failed: %v", err)
+		t.Fatalf("failed to pick a test slug: %v", err)
 	}
-	if slug == "" {
-		t.Fatal("expected a slug but got empty string")
-	}
-	t.Logf("got slug: %s", slug)
-}
 
-func TestGetSlugNotFound(t *testing.T) {
-	db := setupTestDB(t)
-	store := NewURLStore(db)
-
-	// Temporarily empty the quotes table
-	db.Exec("UPDATE quotes SET use_count = 999999")
-	t.Cleanup(func() {
-		db.Exec("UPDATE quotes SET use_count = 0")
-	})
-
-	// Should still return a slug since use_count just offsets
-	_, err := store.GetSlug()
+	_, err = db.Exec(`
+        INSERT INTO urls (slug, original, api_key, expires_at)
+        VALUES ($1, $2, $3, $4)
+    `, slug, original, apiKey, expiresAt)
 	if err != nil {
-		t.Fatalf("GetSlug should always return a slug: %v", err)
+		t.Fatalf("failed to seed test url %q: %v", slug, err)
 	}
+
+	return slug
 }
 
 func TestURLLifecycle(t *testing.T) {
@@ -70,19 +70,10 @@ func TestURLLifecycle(t *testing.T) {
 	store := NewURLStore(db)
 	cleanupURLs(t, db, "test-lifecycle-key")
 
-	// Step 1 — get a slug
-	slug, err := store.GetSlug()
-	if err != nil {
-		t.Fatalf("GetSlug failed: %v", err)
-	}
+	// Step 1 — create a URL
+	slug := seedURL(t, db, "https://example.com", "test-lifecycle-key", time.Now().Add(30*24*time.Hour))
 
-	// Step 2 — create a URL
-	err = store.CreateURL(slug, "https://example.com", "test-lifecycle-key", time.Now().Add(30*24*time.Hour))
-	if err != nil {
-		t.Fatalf("CreateURL failed: %v", err)
-	}
-
-	// Step 3 — retrieve it
+	// Step 2 — retrieve it
 	url, err := store.GetURL(slug)
 	if err != nil {
 		t.Fatalf("GetURL failed: %v", err)
@@ -94,13 +85,13 @@ func TestURLLifecycle(t *testing.T) {
 		t.Error("expected url to be active")
 	}
 
-	// Step 4 — increment click count
+	// Step 3 — increment click count
 	err = store.IncrementClickCount(slug)
 	if err != nil {
 		t.Fatalf("IncrementClickCount failed: %v", err)
 	}
 
-	// Step 5 — verify stats
+	// Step 4 — verify stats
 	stats, err := store.GetStats(slug)
 	if err != nil {
 		t.Fatalf("GetStats failed: %v", err)
@@ -109,13 +100,13 @@ func TestURLLifecycle(t *testing.T) {
 		t.Errorf("expected click_count 1 got %d", stats.ClickCount)
 	}
 
-	// Step 6 — soft delete
+	// Step 5 — soft delete
 	err = store.DeleteURL(slug)
 	if err != nil {
 		t.Fatalf("DeleteURL failed: %v", err)
 	}
 
-	// Step 7 — verify inactive
+	// Step 6 — verify inactive
 	url, err = store.GetURL(slug)
 	if err != nil {
 		t.Fatalf("GetURL after delete failed: %v", err)
@@ -141,8 +132,7 @@ func TestRecordAndGetClicks(t *testing.T) {
 	cleanupURLs(t, db, "test-clicks-key")
 
 	// Create a URL first
-	slug, _ := store.GetSlug()
-	store.CreateURL(slug, "https://example.com", "test-clicks-key", time.Now().Add(30*24*time.Hour))
+	slug := seedURL(t, db, "https://example.com", "test-clicks-key", time.Now().Add(30*24*time.Hour))
 
 	// Record some clicks
 	for i := 0; i < 3; i++ {
@@ -175,13 +165,7 @@ func TestGetDailyClicks(t *testing.T) {
 	cleanupURLs(t, db, "test-daily-clicks-key")
 
 	t.Run("backdated clicks land in the right buckets", func(t *testing.T) {
-		slug, err := store.GetSlug()
-		if err != nil {
-			t.Fatalf("GetSlug failed: %v", err)
-		}
-		if err := store.CreateURL(slug, "https://example.com", "test-daily-clicks-key", time.Now().Add(30*24*time.Hour)); err != nil {
-			t.Fatalf("CreateURL failed: %v", err)
-		}
+		slug := seedURL(t, db, "https://example.com", "test-daily-clicks-key", time.Now().Add(30*24*time.Hour))
 
 		// RecordClick relies on the clicked_at NOW() default so it can't
 		// backdate — insert clicks with explicit timestamps directly.
@@ -246,13 +230,7 @@ func TestGetDailyClicks(t *testing.T) {
 	})
 
 	t.Run("slug with zero clicks returns 7 zero entries", func(t *testing.T) {
-		slug, err := store.GetSlug()
-		if err != nil {
-			t.Fatalf("GetSlug failed: %v", err)
-		}
-		if err := store.CreateURL(slug, "https://example.com", "test-daily-clicks-key", time.Now().Add(30*24*time.Hour)); err != nil {
-			t.Fatalf("CreateURL failed: %v", err)
-		}
+		slug := seedURL(t, db, "https://example.com", "test-daily-clicks-key", time.Now().Add(30*24*time.Hour))
 
 		daily, err := store.GetDailyClicks(slug, 7)
 		if err != nil {
@@ -278,12 +256,10 @@ func TestListURLsByAPIKey(t *testing.T) {
 	cleanupURLs(t, db, hashKey(keyA))
 	cleanupURLs(t, db, hashKey(keyB))
 
-	slugA1, _ := store.GetSlug()
-	store.CreateURL(slugA1, "https://example.com/a1", hashKey(keyA), time.Now().Add(30*24*time.Hour))
-	slugA2, _ := store.GetSlug()
-	store.CreateURL(slugA2, "https://example.com/a2", hashKey(keyA), time.Now().Add(30*24*time.Hour))
-	slugB1, _ := store.GetSlug()
-	store.CreateURL(slugB1, "https://example.com/b1", hashKey(keyB), time.Now().Add(30*24*time.Hour))
+	slugA1 := seedURL(t, db, "https://example.com/a1", hashKey(keyA), time.Now().Add(30*24*time.Hour))
+	slugA2 := seedURL(t, db, "https://example.com/a2", hashKey(keyA), time.Now().Add(30*24*time.Hour))
+	// key B's link exists only to prove it never shows up in key A's list
+	seedURL(t, db, "https://example.com/b1", hashKey(keyB), time.Now().Add(30*24*time.Hour))
 
 	urls, err := store.ListURLsByAPIKey(keyA)
 	if err != nil {
@@ -417,37 +393,6 @@ func TestValidateKeySlidesExpiry(t *testing.T) {
 	if !after.After(before) {
 		t.Errorf("expected expires_at to slide forward, before=%v after=%v", before, after)
 	}
-}
-
-func TestIncrementUseCount(t *testing.T) {
-	db := setupTestDB(t)
-	store := NewURLStore(db)
-
-	slug, err := store.GetSlug()
-	if err != nil {
-		t.Fatalf("GetSlug failed: %v", err)
-	}
-
-	// Get current use count
-	var before int
-	db.QueryRow("SELECT use_count FROM quotes WHERE slug = $1", slug).Scan(&before)
-
-	err = store.IncrementUseCount(slug)
-	if err != nil {
-		t.Fatalf("IncrementUseCount failed: %v", err)
-	}
-
-	var after int
-	db.QueryRow("SELECT use_count FROM quotes WHERE slug = $1", slug).Scan(&after)
-
-	if after != before+1 {
-		t.Errorf("expected use_count %d got %d", before+1, after)
-	}
-
-	// Cleanup
-	t.Cleanup(func() {
-		db.Exec("UPDATE quotes SET use_count = $1 WHERE slug = $2", before, slug)
-	})
 }
 
 func TestSlugForUseCount(t *testing.T) {
