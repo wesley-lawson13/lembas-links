@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -37,6 +38,10 @@ func setupTestRedis(t *testing.T) *redis.Client {
 	return client
 }
 
+// newTestRouter wires the general-purpose RateLimit middleware (IP limit,
+// plus a per-API-key limit when an Authorization header is present) in front
+// of a dummy GET /. RateLimit fails open on Redis errors, since it guards
+// normal traffic and shouldn't block legitimate requests during an outage.
 func newTestRouter(cfg *config.Config, client *redis.Client) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -45,6 +50,20 @@ func newTestRouter(cfg *config.Config, client *redis.Client) *gin.Engine {
 		c.Status(http.StatusOK)
 	})
 	return r
+}
+
+// delAfterTest schedules Redis key deletion for after the test via
+// t.Cleanup. It uses a fresh background context instead of t.Context():
+// t.Context() is canceled just before Cleanup-registered functions run, so
+// reusing it here makes the DEL fail silently and leaves the counter to
+// expire on its own TTL, corrupting any second run inside that window.
+func delAfterTest(t *testing.T, client *redis.Client, keys ...string) {
+	t.Helper()
+	t.Cleanup(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		client.Del(ctx, keys...)
+	})
 }
 
 func doRequest(r *gin.Engine, ip, authHeader string) *httptest.ResponseRecorder {
@@ -58,6 +77,11 @@ func doRequest(r *gin.Engine, ip, authHeader string) *httptest.ResponseRecorder 
 	return w
 }
 
+// newSessionTestRouter wires the SessionRateLimit middleware (IP-only, since
+// no API key exists yet) in front of a dummy POST /session. Unlike RateLimit,
+// SessionRateLimit fails closed on Redis errors: /session is the abuse
+// backstop for anonymous key minting, so an outage should refuse new keys
+// rather than let it be bypassed by knocking Redis over.
 func newSessionTestRouter(cfg *config.Config, client *redis.Client) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -104,7 +128,7 @@ func TestSessionRateLimit_BlocksOverThreshold(t *testing.T) {
 	// Clear up front as well as on cleanup: a short window keeps a leftover
 	// counter from an interrupted run from poisoning later runs.
 	client.Del(t.Context(), key)
-	t.Cleanup(func() { client.Del(t.Context(), key) })
+	delAfterTest(t, client, key)
 
 	cfg := &config.Config{SessionRateLimit: 3, SessionRateLimitWindow: 60}
 	router := newSessionTestRouter(cfg, client)
@@ -123,7 +147,7 @@ func TestSessionRateLimit_BlocksOverThreshold(t *testing.T) {
 func TestRateLimit_AllowsRequestsUnderIPThreshold(t *testing.T) {
 	client := setupTestRedis(t)
 	ip := "10.10.10.1"
-	t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:ip:%s", ip)) })
+	delAfterTest(t, client, fmt.Sprintf("rate:ip:%s", ip))
 
 	cfg := &config.Config{IPRateLimit: 5, KeyRateLimit: 100, RateLimitWindow: 60}
 	router := newTestRouter(cfg, client)
@@ -139,7 +163,7 @@ func TestRateLimit_AllowsRequestsUnderIPThreshold(t *testing.T) {
 func TestRateLimit_BlocksRequestsOverIPThreshold(t *testing.T) {
 	client := setupTestRedis(t)
 	ip := "10.10.10.2"
-	t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:ip:%s", ip)) })
+	delAfterTest(t, client, fmt.Sprintf("rate:ip:%s", ip))
 
 	cfg := &config.Config{IPRateLimit: 3, KeyRateLimit: 100, RateLimitWindow: 60}
 	router := newTestRouter(cfg, client)
@@ -157,10 +181,14 @@ func TestRateLimit_BlocksRequestsOverIPThreshold(t *testing.T) {
 	}
 }
 
-func TestRateLimit_BlocksRequestsOverKeyThreshold(t *testing.T) {
+// TestRateLimit_BlocksRequestsOverAPIKeyThreshold sets IPRateLimit far above
+// what's sent and uses a different IP per request, so only the shared
+// Authorization header can trip the limit — isolating the API-key counter
+// from the IP counter and confirming it blocks once KeyRateLimit is exceeded.
+func TestRateLimit_BlocksRequestsOverAPIKeyThreshold(t *testing.T) {
 	client := setupTestRedis(t)
 	authHeader := "Bearer test-rate-key-1"
-	t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:key:%s", ExtractBearerToken(authHeader))) })
+	delAfterTest(t, client, fmt.Sprintf("rate:key:%s", ExtractBearerToken(authHeader)))
 
 	cfg := &config.Config{IPRateLimit: 1000, KeyRateLimit: 3, RateLimitWindow: 60}
 	router := newTestRouter(cfg, client)
@@ -168,7 +196,7 @@ func TestRateLimit_BlocksRequestsOverKeyThreshold(t *testing.T) {
 	// use a different IP each request so the IP limit never interferes
 	for i := range 3 {
 		ip := fmt.Sprintf("10.10.20.%d", i+1)
-		t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:ip:%s", ip)) })
+		delAfterTest(t, client, fmt.Sprintf("rate:ip:%s", ip))
 
 		w := doRequest(router, ip, authHeader)
 		if w.Code != http.StatusOK {
@@ -177,7 +205,7 @@ func TestRateLimit_BlocksRequestsOverKeyThreshold(t *testing.T) {
 	}
 
 	ip := "10.10.20.99"
-	t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:ip:%s", ip)) })
+	delAfterTest(t, client, fmt.Sprintf("rate:ip:%s", ip))
 
 	w := doRequest(router, ip, authHeader)
 	if w.Code != http.StatusTooManyRequests {
@@ -185,10 +213,16 @@ func TestRateLimit_BlocksRequestsOverKeyThreshold(t *testing.T) {
 	}
 }
 
-func TestRateLimit_PrefixedAndUnprefixedHeaderShareCounter(t *testing.T) {
+// TestRateLimit_PrefixedAndUnprefixedHeaderShareAPIKeyCounter alternates
+// "Bearer <key>" and bare "<key>" across requests (different IP each time,
+// so only the API-key counter can trip) and confirms they hit the same
+// KeyRateLimit threshold together — proving ExtractBearerToken normalizes
+// both forms to one counter instead of letting a caller double their budget
+// by varying header format.
+func TestRateLimit_PrefixedAndUnprefixedHeaderShareAPIKeyCounter(t *testing.T) {
 	client := setupTestRedis(t)
 	rawKey := "test-rate-key-2"
-	t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:key:%s", rawKey)) })
+	delAfterTest(t, client, fmt.Sprintf("rate:key:%s", rawKey))
 
 	cfg := &config.Config{IPRateLimit: 1000, KeyRateLimit: 3, RateLimitWindow: 60}
 	router := newTestRouter(cfg, client)
@@ -198,7 +232,7 @@ func TestRateLimit_PrefixedAndUnprefixedHeaderShareCounter(t *testing.T) {
 	headers := []string{"Bearer " + rawKey, rawKey, "Bearer " + rawKey}
 	for i, h := range headers {
 		ip := fmt.Sprintf("10.10.60.%d", i+1)
-		t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:ip:%s", ip)) })
+		delAfterTest(t, client, fmt.Sprintf("rate:ip:%s", ip))
 
 		w := doRequest(router, ip, h)
 		if w.Code != http.StatusOK {
@@ -207,7 +241,7 @@ func TestRateLimit_PrefixedAndUnprefixedHeaderShareCounter(t *testing.T) {
 	}
 
 	ip := "10.10.60.99"
-	t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:ip:%s", ip)) })
+	delAfterTest(t, client, fmt.Sprintf("rate:ip:%s", ip))
 
 	w := doRequest(router, ip, rawKey)
 	if w.Code != http.StatusTooManyRequests {
@@ -215,10 +249,14 @@ func TestRateLimit_PrefixedAndUnprefixedHeaderShareCounter(t *testing.T) {
 	}
 }
 
-func TestRateLimit_NoAuthHeaderSkipsKeyLimit(t *testing.T) {
+// TestRateLimit_NoAuthHeaderSkipsAPIKeyLimit sets KeyRateLimit well below the
+// number of anonymous requests sent and confirms they all succeed, proving
+// the API-key check is never applied when no Authorization header is present
+// rather than just having a generous limit.
+func TestRateLimit_NoAuthHeaderSkipsAPIKeyLimit(t *testing.T) {
 	client := setupTestRedis(t)
 	ip := "10.10.30.1"
-	t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:ip:%s", ip)) })
+	delAfterTest(t, client, fmt.Sprintf("rate:ip:%s", ip))
 
 	// KeyRateLimit is set well below the number of requests made; if the
 	// key-based check were mistakenly applied to anonymous requests, this
@@ -237,9 +275,7 @@ func TestRateLimit_NoAuthHeaderSkipsKeyLimit(t *testing.T) {
 func TestRateLimit_DifferentIPsHaveIndependentCounters(t *testing.T) {
 	client := setupTestRedis(t)
 	ipA, ipB := "10.10.40.1", "10.10.40.2"
-	t.Cleanup(func() {
-		client.Del(t.Context(), fmt.Sprintf("rate:ip:%s", ipA), fmt.Sprintf("rate:ip:%s", ipB))
-	})
+	delAfterTest(t, client, fmt.Sprintf("rate:ip:%s", ipA), fmt.Sprintf("rate:ip:%s", ipB))
 
 	cfg := &config.Config{IPRateLimit: 2, KeyRateLimit: 1000, RateLimitWindow: 60}
 	router := newTestRouter(cfg, client)
@@ -259,10 +295,14 @@ func TestRateLimit_DifferentIPsHaveIndependentCounters(t *testing.T) {
 	}
 }
 
-func TestRateLimit_WindowResetsAfterExpiry(t *testing.T) {
+// TestRateLimit_IPWindowResetsAfterExpiry uses a 1-second RateLimitWindow to
+// trip the IP counter, sleeps past it, and confirms a subsequent request from
+// the same IP succeeds again — verifying the Redis counter actually expires
+// on its TTL rather than blocking a caller permanently once tripped.
+func TestRateLimit_IPWindowResetsAfterExpiry(t *testing.T) {
 	client := setupTestRedis(t)
 	ip := "10.10.50.1"
-	t.Cleanup(func() { client.Del(t.Context(), fmt.Sprintf("rate:ip:%s", ip)) })
+	delAfterTest(t, client, fmt.Sprintf("rate:ip:%s", ip))
 
 	cfg := &config.Config{IPRateLimit: 1, KeyRateLimit: 1000, RateLimitWindow: 1}
 	router := newTestRouter(cfg, client)
