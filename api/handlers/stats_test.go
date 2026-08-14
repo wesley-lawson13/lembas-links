@@ -1,65 +1,17 @@
 package handlers
 
 import (
-	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/lib/pq"
 
 	"github.com/wesley-lawson13/lembas-links/config"
 	"github.com/wesley-lawson13/lembas-links/models"
 )
-
-// setupStatsTestDB connects to the test database.
-// Skips the test if TEST_DATABASE_URL is not set.
-func setupStatsTestDB(t *testing.T) *sql.DB {
-	t.Helper()
-	dsn := os.Getenv("TEST_DATABASE_URL")
-	if dsn == "" {
-		t.Skip("TEST_DATABASE_URL not set, skipping integration tests")
-	}
-	db, err := sql.Open("postgres", dsn)
-	if err != nil {
-		t.Fatalf("failed to connect to test database: %v", err)
-	}
-	t.Cleanup(func() { db.Close() })
-	return db
-}
-
-// seedURL inserts a url row owned by hashedKey under a least-used quote slug,
-// standing in for the removed store.GetSlug + store.CreateURL pair. Called from
-// the handler tests that need an existing link to request. 
-func seedURL(t *testing.T, db *sql.DB, hashedKey string, expiresAt time.Time) string {
-	t.Helper()
-
-	var slug string
-	err := db.QueryRow(`
-        SELECT q.slug
-        FROM quotes q
-        WHERE NOT EXISTS (SELECT 1 FROM urls u WHERE u.slug = q.slug)
-        ORDER BY q.use_count, RANDOM()
-        LIMIT 1
-    `).Scan(&slug)
-	if err != nil {
-		t.Fatalf("failed to pick a test slug: %v", err)
-	}
-
-	_, err = db.Exec(`
-        INSERT INTO urls (slug, original, api_key, expires_at)
-        VALUES ($1, $2, $3, $4)
-    `, slug, "https://example.com", hashedKey, expiresAt)
-	if err != nil {
-		t.Fatalf("failed to seed test url %q: %v", slug, err)
-	}
-
-	return slug
-}
 
 func newStatsTestRouter(store *models.URLStore, cfg *config.Config) *gin.Engine {
 	gin.SetMode(gin.TestMode)
@@ -84,7 +36,7 @@ func doStatsRequest(r *gin.Engine, slug, authHeader string) *httptest.ResponseRe
 // for the actual owner, mirroring the anti-enumeration behavior DeleteLink
 // enforces for the same slug/key pairing.
 func TestGetStats_OwnershipMismatchReturns404(t *testing.T) {
-	db := setupStatsTestDB(t)
+	db := setupTestDB(t)
 	store := models.NewURLStore(db)
 	cfg := &config.Config{DefaultTTLDays: 30, RecentClicksLimit: 10}
 	router := newStatsTestRouter(store, cfg)
@@ -113,7 +65,7 @@ func TestGetStats_OwnershipMismatchReturns404(t *testing.T) {
 // the owner's analytics: stats for an expired link return 200 for the owner
 // while non-owners still get the anti-enumeration 404.
 func TestGetStats_OwnerSeesExpiredLink(t *testing.T) {
-	db := setupStatsTestDB(t)
+	db := setupTestDB(t)
 	store := models.NewURLStore(db)
 	cfg := &config.Config{DefaultTTLDays: 30, RecentClicksLimit: 10}
 	router := newStatsTestRouter(store, cfg)
@@ -152,7 +104,7 @@ func TestGetStats_OwnerSeesExpiredLink(t *testing.T) {
 // response carries a 7-entry daily_clicks series and a short_url built from
 // the configured base URL.
 func TestGetStats_IncludesDailyClicksAndShortURL(t *testing.T) {
-	db := setupStatsTestDB(t)
+	db := setupTestDB(t)
 	store := models.NewURLStore(db)
 	cfg := &config.Config{DefaultTTLDays: 30, RecentClicksLimit: 10, BaseURL: "http://localhost:8080"}
 	router := newStatsTestRouter(store, cfg)
@@ -196,7 +148,7 @@ func TestGetStats_IncludesDailyClicksAndShortURL(t *testing.T) {
 // an expired slug returns 410 without soft-deleting the row, so the link
 // keeps appearing in the owner's list and stats.
 func TestRedirect_ExpiredLinkReturns410AndStaysActive(t *testing.T) {
-	db := setupStatsTestDB(t)
+	db := setupTestDB(t)
 	redisClient := setupLinksTestRedis(t)
 	store := models.NewURLStore(db)
 	cfg := &config.Config{DefaultTTLDays: 30, RecentClicksLimit: 10}

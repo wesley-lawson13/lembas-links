@@ -121,7 +121,7 @@ func TestCreateLink_RejectsInvalidURL(t *testing.T) {
 // a non-owning key before returning 204 for the actual owner — verifying the
 // handler never leaks slug existence to a caller who doesn't own it.
 func TestDeleteLink_OwnershipMismatchReturns404(t *testing.T) {
-	db := setupStatsTestDB(t)
+	db := setupTestDB(t)
 	redisClient := setupLinksTestRedis(t)
 	store := models.NewURLStore(db)
 	cfg := &config.Config{DefaultTTLDays: 30, RecentClicksLimit: 10}

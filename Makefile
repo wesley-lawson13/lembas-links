@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: run stop build test test-rate test-handlers test-all e2e seed seed-dev migrate logs generate
+.PHONY: run stop build test-models test-rate test-handlers test-all e2e seed seed-dev migrate logs generate
 
 run:
 	docker compose up --build
@@ -12,13 +12,18 @@ stop:
 build:
 	docker compose build
 
-test:
+# The test-* targets below run integration cases (models needs Postgres;
+# rate and handlers need both Postgres and Redis) that call t.Skip per-case
+# unless TEST_DATABASE_URL / TEST_REDIS_URL are set. To actually run them
+# rather than skip, start the dependencies first — `make run`, or just
+# `docker compose up postgres redis` — and point those two env vars at
+# localhost (see README > Testing > Enabling integration tests).
+test-models:
 	cd api && go test ./models/... -v
 
 test-rate:
 	cd api && go test ./middleware/... -v
 
-# Needs both TEST_DATABASE_URL and TEST_REDIS_URL, or its cases skip
 test-handlers:
 	cd api && go test ./handlers/... -v
 

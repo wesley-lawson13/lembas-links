@@ -65,6 +65,9 @@ func seedURL(t *testing.T, db *sql.DB, original, apiKey string, expiresAt time.T
 	return slug
 }
 
+// TestURLLifecycle walks a single URL through its full lifecycle — seed,
+// GetURL, IncrementClickCount, GetStats, DeleteURL, GetURL again — asserting
+// the expected state at each step (active, click_count, then inactive).
 func TestURLLifecycle(t *testing.T) {
 	db := setupTestDB(t)
 	store := NewURLStore(db)
@@ -126,6 +129,8 @@ func TestGetURLNotFound(t *testing.T) {
 	}
 }
 
+// TestRecordAndGetClicks records three clicks against a seeded URL and
+// confirms GetClicks returns all three ordered most-recent-first.
 func TestRecordAndGetClicks(t *testing.T) {
 	db := setupTestDB(t)
 	store := NewURLStore(db)
@@ -247,6 +252,9 @@ func TestGetDailyClicks(t *testing.T) {
 	})
 }
 
+// TestListURLsByAPIKey seeds two URLs for key A and one for key B, and
+// confirms ListURLsByAPIKey(A) returns only A's two URLs — then soft-deletes
+// one of A's URLs and confirms it drops out of the list, leaving the other.
 func TestListURLsByAPIKey(t *testing.T) {
 	db := setupTestDB(t)
 	store := NewURLStore(db)
@@ -293,6 +301,9 @@ func cleanupAPIKey(t *testing.T, db *sql.DB, hashedKey string) {
 	})
 }
 
+// TestValidateKey table-tests ValidateKey against a freshly created key, a
+// well-formed but never-issued key, and an empty string — the baseline
+// valid/invalid sweep for the auth store, independent of expiry.
 func TestValidateKey(t *testing.T) {
 	db := setupTestDB(t)
 	store := NewURLStore(db)
@@ -326,6 +337,9 @@ func TestValidateKey(t *testing.T) {
 	}
 }
 
+// TestCreateAndValidateKeyRoundTrip confirms a key produced by CreateKey
+// immediately validates via ValidateKey, proving the two methods agree on
+// the same hash/storage format rather than just testing each in isolation.
 func TestCreateAndValidateKeyRoundTrip(t *testing.T) {
 	db := setupTestDB(t)
 	store := NewURLStore(db)
@@ -341,6 +355,9 @@ func TestCreateAndValidateKeyRoundTrip(t *testing.T) {
 	}
 }
 
+// TestValidateKeyExpired inserts a key row with expires_at already in the
+// past (bypassing CreateKey, which always sets a future expiry) and confirms
+// ValidateKey rejects it.
 func TestValidateKeyExpired(t *testing.T) {
 	db := setupTestDB(t)
 	store := NewURLStore(db)
@@ -365,6 +382,10 @@ func TestValidateKeyExpired(t *testing.T) {
 	}
 }
 
+// TestValidateKeySlidesExpiry creates a key with a 1-hour TTL, then calls
+// ValidateKey with a 24-hour TTL and confirms expires_at moved forward —
+// verifying ValidateKey implements sliding-expiration (each successful use
+// extends the key's lifetime) rather than leaving the original expiry fixed.
 func TestValidateKeySlidesExpiry(t *testing.T) {
 	db := setupTestDB(t)
 	store := NewURLStore(db)
@@ -395,6 +416,9 @@ func TestValidateKeySlidesExpiry(t *testing.T) {
 	}
 }
 
+// TestSlugForUseCount table-tests the pure slugForUseCount helper: use count
+// 1 returns the base slug unchanged, use counts 2+ append "-N", and a
+// non-positive count defensively falls back to the base slug.
 func TestSlugForUseCount(t *testing.T) {
 	tests := []struct {
 		base     string

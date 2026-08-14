@@ -394,7 +394,7 @@ Most tests are unit tests with no external dependencies. A few (in `models`, `mi
 ### Running tests
 
 ```bash
-make test           # cd api && go test ./models/... -v
+make test-models    # cd api && go test ./models/... -v
 make test-rate      # cd api && go test ./middleware/... -v
 make test-handlers  # cd api && go test ./handlers/... -v
 ```
@@ -411,7 +411,7 @@ cd api && go test ./... -run TestFunctionName
 
 ### Enabling integration tests
 
-Integration tests check for `TEST_DATABASE_URL` (Postgres) and `TEST_REDIS_URL` (Redis) and call `t.Skip` if unset. With `make run` already up, the compose services are reachable from the host, so you can point both at localhost:
+Integration tests check for `TEST_DATABASE_URL` (Postgres) and `TEST_REDIS_URL` (Redis) and call `t.Skip` per-case if unset — so without Docker running, `make test-models`, `make test-rate`, `make test-handlers`, and `make test-all` will all report as passing while quietly skipping their integration cases. `test-models` needs Postgres; `test-rate` and `test-handlers` need both Postgres and Redis. With `make run` already up (or just `docker compose up postgres redis` if you don't need the API/frontend containers), the compose services are reachable from the host, so you can point both at localhost:
 
 ```bash
 # in .env

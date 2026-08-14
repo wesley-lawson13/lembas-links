@@ -51,6 +51,9 @@ func doAuthRequest(r *gin.Engine, authHeader string) *httptest.ResponseRecorder 
 	return w
 }
 
+// TestAPIKeyAuth_MissingHeader sends a request with no Authorization header
+// at all and confirms APIKeyAuth rejects it with 401 rather than treating an
+// absent header as anonymous/allowed.
 func TestAPIKeyAuth_MissingHeader(t *testing.T) {
 	db := setupAuthTestDB(t)
 	store := models.NewURLStore(db)
@@ -63,6 +66,9 @@ func TestAPIKeyAuth_MissingHeader(t *testing.T) {
 	}
 }
 
+// TestAPIKeyAuth_UnknownKey sends a well-formed but never-issued key and
+// confirms APIKeyAuth rejects it with 401, proving the middleware actually
+// validates against stored keys rather than accepting any bearer-shaped token.
 func TestAPIKeyAuth_UnknownKey(t *testing.T) {
 	db := setupAuthTestDB(t)
 	store := models.NewURLStore(db)
@@ -75,6 +81,9 @@ func TestAPIKeyAuth_UnknownKey(t *testing.T) {
 	}
 }
 
+// TestAPIKeyAuth_ExpiredKey inserts a key row with expires_at already in the
+// past and confirms APIKeyAuth rejects it with 401 — a key existing in the
+// table isn't sufficient on its own, it must also still be within its TTL.
 func TestAPIKeyAuth_ExpiredKey(t *testing.T) {
 	db := setupAuthTestDB(t)
 	store := models.NewURLStore(db)
@@ -99,6 +108,10 @@ func TestAPIKeyAuth_ExpiredKey(t *testing.T) {
 	}
 }
 
+// TestAPIKeyAuth_ValidKey creates a real, unexpired key via store.CreateKey
+// and confirms APIKeyAuth admits it with 200 — the happy-path counterpart to
+// the three rejection cases above, proving the middleware isn't just failing
+// closed on everything.
 func TestAPIKeyAuth_ValidKey(t *testing.T) {
 	db := setupAuthTestDB(t)
 	store := models.NewURLStore(db)
