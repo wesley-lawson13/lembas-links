@@ -8,10 +8,11 @@ A Lord of the Rings themed URL shortener built in Go (Gin) with Redis caching, A
 
 ## Table of Contents
 - [Features](#features)
-- [Description, Project Outcomes, and Future Plans](#description-project-outcomes-and-future-plans)
+- [Description, Project Objectives, and Future Plans](#description-project-outcomes-and-future-plans)
 - [How it Works](#how-it-works)
 - [Usage](#usage)
 - [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
 - [API Reference](#api-reference)
 - [Testing](#testing)
@@ -37,13 +38,13 @@ A Lord of the Rings themed URL shortener built in Go (Gin) with Redis caching, A
 
 ---
 
-## Description, Project Outcomes, and Future Plans
+## Description, Project Objectives, and Future Plans
 
 As a huge Lord of the Rings fan, I've always been looking for ways to incorporate my love for the fantasy franchise into different aspects of my life (seriously, I talk about it way too much). Thus, when I thought of Lembas Links, it felt like the perfect opportunity; Not only to make a LOTR themed project, but also to learn important backend programming principles and apply skills I've learned from my Natural Language Processing coursework at Boston College.
 
 In building this Lembas Links, I gained hands-on, end-to-end experience designing and implementing a REST API in Go using Gin, a relevant backend framework. This experience really helped me understand how each component of the backend architecture interacts with one another, such as how authentication middleware, rate limiting, and the models layer interact, deepening my understanding of backend security and clean API design. Additionally, I gained valuable insight into important caching principles and practices through my use of Redis and how such technologies can improve performance. Lastly, I also developed practical skills in containerization with Docker Compose, building upon my previous experience using the technology.
 
-Currently, I'm building a lightweight React frontend for Lembas Links so it's easier to try out without having to hit the API directly. Once that's done, my next goal is learning AWS by redeploying the project there: first a manual EC2 deployment, then codifying that infrastructure with Terraform, then automating deployments with GitHub Actions, and finally adding observability once there's real traffic worth monitoring.
+Currently, my next goal is to learn AWS by redeploying the project there: first a manual EC2 deployment, then codifying that infrastructure with Terraform, then automating deployments with GitHub Actions, and finally adding observability. 
 
 Thanks for checking out my Lembas Links repo! If you have any questions please feel free to get in touch.
 
@@ -59,81 +60,27 @@ The NLP preprocessing pipeline is a separate tool that runs once to generate the
 
 ## Usage
 
-First, follow the [Getting Started](#getting-started) steps to get the services running locally. All examples below assume the API is running at `http://localhost:8080` and use the dev API key inserted by `make seed-dev` (`test-api-key-123`).
+First, follow the [Getting Started](#getting-started) steps to get the services running locally, then open the frontend at `http://localhost:5173`.
 
-### Getting an API Key
+### Create a link
 
-Two options:
+Paste a URL into the dashboard form and submit. An anonymous API key is minted for you silently on first visit — nothing to configure. A confirmation card shows your new short link (e.g. `gandalf-shadow-flame`) ready to copy.
 
-- **Dev key:** run `make seed-dev` after starting the services — it inserts a fixed test key (`test-api-key-123`) for local development.
-- **Session key:** mint your own anonymous key, no signup required:
+### View your links
 
-    ```bash
-    curl -X POST http://localhost:8080/session
-    ```
+The dashboard's link list shows every link created with your key, with live click counts. It updates as you create new ones.
 
-    Response:
-    ```json
-    {
-        "api_key": "9f2c...raw-key...",
-        "expires_at": "2026-08-20T16:00:00Z"
-    }
-    ```
+### Check a link's stats
 
-    A key's expiry slides forward on every authenticated request, so an active caller never loses access — only abandoned keys age out.
+Click through to a link's stats page (`/stats/:slug`) for its click count, a 7-day click chart, and a table of recent clicks (referrer, user agent, timestamp per click).
 
-Pass the key as a Bearer token: `Authorization: Bearer <api_key>`.
+### Delete a link
 
-### Create a Short Link
+Remove a link from the dashboard — this soft-deletes it and immediately invalidates the Redis cache, so the short URL stops resolving right away.
 
-```bash
-curl -X POST http://localhost:8080/links \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer test-api-key-123" \
-    -d '{"url": "https://your-long-url.com"}'
-```
+Toggle light/dark ("Parchment"/"Rivendell") theme from the header at any time; your choice is remembered in `localStorage`.
 
-Response:
-```json
-{
-    "slug": "gandalf-shadow-flame",
-    "short_url": "http://localhost:8080/gandalf-shadow-flame",
-    "original": "https://your-long-url.com"
-}
-```
-
-### Follow a Short Link
-
-Visit the short URL in your browser or via curl:
-
-```bash
-curl -L http://localhost:8080/gandalf-shadow-flame
-```
-
-### List Your Links
-
-```bash
-curl http://localhost:8080/links \
-    -H "Authorization: Bearer test-api-key-123"
-```
-
-Returns every active link created with that API key.
-
-### Check Link Stats
-
-```bash
-curl http://localhost:8080/links/gandalf-shadow-flame/stats \
-    -H "Authorization: Bearer test-api-key-123"
-```
-
-Only the key that created a link can view its stats or delete it — any other key gets a `404`, same as a nonexistent slug.
-
-### Delete a Link
-
-```bash
-curl -X DELETE http://localhost:8080/links/gandalf-shadow-flame \
-    -H "Authorization: Bearer test-api-key-123"
-```
+For direct API access — scripts, Postman, curl — see [API Reference](#api-reference) below, or the live Swagger UI at `/swagger/index.html`.
 
 ## Tech Stack
 
@@ -143,9 +90,19 @@ curl -X DELETE http://localhost:8080/links/gandalf-shadow-flame \
 | Frontend | React 19, TypeScript, Vite, react-router |
 | Database | Postgres 15 |
 | Cache + Rate Limiting | Redis 7 |
-| NLP Pipeline | Python 3.11, spaCy, pandas, RAKE, rapidfuzz, Claude Haiku API |
+| NLP Pipeline | Python 3.11, spaCy, pandas, rapidfuzz, Claude Haiku API |
 | Containerization | Docker, Docker Compose |
 | Migrations | golang-migrate |
+
+---
+
+## Project Structure
+
+Each part of the system has its own README with implementation details beyond what's covered here:
+
+- `api/` — the Go API — see [`api/README.md`](api/README.md)
+- `frontend/` — the React SPA — see [`frontend/README.md`](frontend/README.md)
+- `nlp-service/` — the offline slug-generation pipeline — see [`nlp-service/README.md`](nlp-service/README.md)
 
 ---
 
@@ -174,17 +131,17 @@ make run
 ```
 
 ### 4. Seed the database
-In a new terminal window:
+The API auto-loads the pre-generated LOTR themed slug pool (~340 slugs) into an empty `quotes` table on its first startup, so this step is usually optional. Run it explicitly if you want the pool loaded before the API's first request, or to force a reseed of a non-empty table:
 ```bash
 make seed
 ```
-Loads the pre-generated LOTR themed slug pool (~340 slugs) into Postgres.
 
 ### 5. Create an API key
+Not required to try the app — opening the frontend (step 7) mints an anonymous key for you automatically. For manual/API testing:
 ```bash
 make seed-dev
 ```
-Inserts a fixed test API key (`test-api-key-123`) for local development. Alternatively, mint your own via `curl -X POST http://localhost:8080/session` — see [Getting an API Key](#getting-an-api-key).
+Inserts a fixed test API key (`test-api-key-123`) for local development. Alternatively, mint your own via `POST /session` — see [API Reference](#api-reference).
 
 ### 6. Verify everything is running
 ```bash
@@ -201,7 +158,7 @@ cp frontend/.env.example frontend/.env
 
 then open `http://localhost:5173`. An anonymous API key is minted for you silently on first visit — no login. Make sure `CORS_ALLOWED_ORIGINS` in the root `.env` includes `http://localhost:5173` so the API accepts the browser's requests.
 
-To run the frontend outside Docker instead: `cd frontend && npm install && npm run dev`.
+To run the frontend outside Docker instead: `cd frontend && npm install && npm run dev`. For more on the frontend's structure and dev workflow, see [`frontend/README.md`](frontend/README.md).
 
 ---
 
@@ -212,7 +169,7 @@ To run the frontend outside Docker instead: `cd frontend && npm install && npm r
 Protected endpoints require an API key passed in the `Authorization` header, optionally prefixed with `Bearer `:
     `Authorization: Bearer your-api-key`
 
-Get a key via `make seed-dev` or `POST /session` — see [Getting an API Key](#getting-an-api-key). Keys are stored hashed (SHA-256) and their expiry slides forward by `DEFAULT_TTL_DAYS` on every authenticated request.
+Get a key via `make seed-dev`, `POST /session` below, or by opening the frontend (which mints one for you automatically). Keys are stored hashed (SHA-256) and their expiry slides forward by `DEFAULT_TTL_DAYS` on every authenticated request.
 
 ### Endpoints
 
@@ -429,11 +386,21 @@ make e2e
 
 The script fails fast on the first unexpected status and prints which step broke. It resets the `rate:session:*` counters in Redis before minting steps, so it's safe to rerun back-to-back. Configurable via env vars: `API_URL` (default `http://localhost:8080`), `ORIGIN` (default `http://localhost:5173`, must be in `CORS_ALLOWED_ORIGINS`), and `SESSION_RATE_LIMIT` (default 5, must match the API's setting).
 
+### NLP pipeline tests
+
+The NLP pipeline has its own pytest suite, separate from the Go tests above:
+
+```bash
+make test-nlp   # venv activated — cd nlp-service && pytest
+```
+
+See [`nlp-service/README.md`](nlp-service/README.md#running-the-tests) for setup details.
+
 ---
 
 ## NLP Pipeline
 
-The slug generation pipeline runs offline as a one-time preprocessing step and is not part of the running application.
+The slug generation pipeline runs offline as a one-time preprocessing step and is not part of the running application. For implementation details and its test suite, see [`nlp-service/README.md`](nlp-service/README.md).
 
 ### How It Works
 
@@ -475,7 +442,6 @@ This project was previously deployed on Railway. The deployment is no longer act
 | `DATABASE_URL` | Postgres connection string used by the API | required |
 | `REDIS_URL` | Redis connection string | required |
 | `API_PORT` | Port to run the API on | `8080` |
-| `API_SECRET_KEY` | Reserved for future use — the API currently generates and validates keys via random bytes + SHA-256 hashing and does not read this value | optional |
 | `BASE_URL` | Base URL for short links | required |
 | `IP_RATE_LIMIT` | Requests per minute per IP | `60` |
 | `KEY_RATE_LIMIT` | Requests per minute per API key | `120` |
@@ -487,8 +453,6 @@ This project was previously deployed on Railway. The deployment is no longer act
 | `RECENT_CLICKS_LIMIT` | Number of recent clicks returned by the stats endpoint | `10` |
 | `TEST_DATABASE_URL` | Postgres connection string used by `go test` for integration tests; tests are skipped if unset | optional |
 | `TEST_REDIS_URL` | Redis connection string used by `go test` for integration tests; tests are skipped if unset | optional |
-
-> **Note:** `.env.example` also defines `NLP_SERVICE_URL`, but no service currently reads it — it's not required to run the project and can be left blank.
 
 ---
 

@@ -11,7 +11,6 @@ type Config struct {
 	DatabaseURL string
 	RedisURL    string
 	APIPort     string
-	APISecret   string
 	BaseURL     string
 
 	// middleware vars
@@ -35,7 +34,6 @@ func Load() *Config {
 		DatabaseURL:            os.Getenv("DATABASE_URL"),
 		RedisURL:               os.Getenv("REDIS_URL"),
 		APIPort:                getEnvWithFallback("API_PORT", "PORT", "8080"),
-		APISecret:              os.Getenv("API_SECRET_KEY"),
 		BaseURL:                os.Getenv("BASE_URL"),
 		IPRateLimit:            getEnvInt("IP_RATE_LIMIT", 60),
 		KeyRateLimit:           getEnvInt("KEY_RATE_LIMIT", 120),

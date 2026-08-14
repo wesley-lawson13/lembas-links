@@ -106,6 +106,5 @@ Before writing a new function, write a 1-2 sentence description of what it does 
 See `.env.example` for the full list. Key variables:
 - `DATABASE_URL` / `REDIS_URL` — Connection strings
 - `BASE_URL` — The domain used to construct short URLs
-- `API_SECRET_KEY` — Reserved for secure key generation (currently unused by the API)
 - `IP_RATE_LIMIT`, `KEY_RATE_LIMIT`, `DEFAULT_TTL_DAYS` — Tunable defaults
 - `ANTHROPIC_API_KEY` — Only needed when running the NLP pipeline (`make generate`)
