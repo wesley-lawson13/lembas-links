@@ -34,9 +34,7 @@ func setupStatsTestDB(t *testing.T) *sql.DB {
 
 // seedURL inserts a url row owned by hashedKey under a least-used quote slug,
 // standing in for the removed store.GetSlug + store.CreateURL pair. Called from
-// the handler tests that need an existing link to request. Unlike the old
-// GetSlug, it skips slugs already taken in urls: nothing here bumps use_count,
-// so two seeds in one test would otherwise draw the same slug and collide.
+// the handler tests that need an existing link to request. 
 func seedURL(t *testing.T, db *sql.DB, hashedKey string, expiresAt time.Time) string {
 	t.Helper()
 
@@ -81,6 +79,10 @@ func doStatsRequest(r *gin.Engine, slug, authHeader string) *httptest.ResponseRe
 	return w
 }
 
+// TestGetStats_OwnershipMismatchReturns404 seeds a link owned by one API key
+// and asserts GetStats returns 404 for a non-owning key before returning 200
+// for the actual owner, mirroring the anti-enumeration behavior DeleteLink
+// enforces for the same slug/key pairing.
 func TestGetStats_OwnershipMismatchReturns404(t *testing.T) {
 	db := setupStatsTestDB(t)
 	store := models.NewURLStore(db)

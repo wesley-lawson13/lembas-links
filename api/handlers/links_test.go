@@ -37,6 +37,9 @@ func setupLinksTestRedis(t *testing.T) *redis.Client {
 	return client
 }
 
+// newLinksTestRouter wires a real LinkHandler (backed by the given store,
+// Redis client, and config) to a bare DELETE /links/:slug route.
+// Called from TestDeleteLink_OwnershipMismatchReturns404.
 func newLinksTestRouter(store *models.URLStore, redisClient *redis.Client, cfg *config.Config) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	lh := NewLinkHandler(store, redisClient, cfg)
@@ -45,6 +48,9 @@ func newLinksTestRouter(store *models.URLStore, redisClient *redis.Client, cfg *
 	return r
 }
 
+// doDeleteRequest sends a DELETE /links/:slug request through the router,
+// optionally setting authHeader as the Authorization header, and returns the
+// recorded response. Called from TestDeleteLink_OwnershipMismatchReturns404.
 func doDeleteRequest(r *gin.Engine, slug, authHeader string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodDelete, "/links/"+slug, nil)
 	if authHeader != "" {
@@ -55,6 +61,10 @@ func doDeleteRequest(r *gin.Engine, slug, authHeader string) *httptest.ResponseR
 	return w
 }
 
+// TestValidateTargetURL exercises validateTargetURL directly against allowed
+// (http/https, case-insensitive scheme) and disallowed inputs (javascript:,
+// data:, file:, mailto:, scheme-less, host-less, over-length) — ensuring the
+// safeguard against CreateLink being used as an open redirector works correctly.
 func TestValidateTargetURL(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -106,6 +116,10 @@ func TestCreateLink_RejectsInvalidURL(t *testing.T) {
 	}
 }
 
+// TestDeleteLink_OwnershipMismatchReturns404 seeds a link owned by one API
+// key, then asserts DeleteLink returns 404 (and leaves the link active) for
+// a non-owning key before returning 204 for the actual owner — verifying the
+// handler never leaks slug existence to a caller who doesn't own it.
 func TestDeleteLink_OwnershipMismatchReturns404(t *testing.T) {
 	db := setupStatsTestDB(t)
 	redisClient := setupLinksTestRedis(t)
