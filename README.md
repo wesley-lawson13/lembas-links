@@ -65,7 +65,7 @@ Lembas Links also acted as a learning ground for me to develop strong agentic co
 Thus, over the course of developing this project, I feel I've been able to foster the following skills:
 
 - **AI-assisted development** — planning, `CLAUDE.md` creation and customization, and close code reviews
-- **Parallel feature development** across Git worktrees, plus browser-driven debugging through the Chrome MCP server
+- **Parallel feature development** — Git worktrees and browser-driven debugging through the Chrome MCP server
 - **Issue-to-PR workflow** — scoped branches and detailed commit messages, matching standard industry practice
 - **Testing at every layer** — Go unit tests, integration tests against real Postgres and Redis, and an end-to-end smoke test over live HTTP
 - **System design** — utilizing caching effectively, rate limiting, schema and index modeling, and sliding window authentication expiration
