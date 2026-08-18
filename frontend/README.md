@@ -4,17 +4,9 @@ Vite + React + TypeScript SPA for the Lembas Links URL shortener. Talks to the
 Go API over CORS; an anonymous API key is minted silently via `POST /session`
 on first visit and kept in localStorage (see `src/api.ts`).
 
-## Local development
-
-```bash
-cp .env.example .env   # points VITE_API_BASE_URL at the API (default localhost:8080)
-npm install
-npm run dev            # http://localhost:5173
-```
-
 Or via Docker Compose from the repo root: `make run`.
 
-## Structure
+### Structure
 
 - `src/api.ts` — typed API client + anonymous-key lifecycle (mint, cache, retry-on-401)
 - `src/types.ts` — TS mirrors of the API's JSON contract

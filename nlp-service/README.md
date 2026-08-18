@@ -5,6 +5,24 @@ by the API's `quotes` table (see `../db/seeds/quotes.sql`). It is not part of
 the running application — there's no `nlp-service` entry in
 `docker-compose.yml`, and nothing in the API calls out to it at runtime.
 
+### Structure
+
+- `nlp_preprocess.py` — cleans raw quote text, extracts keywords and LOTR
+  entities (characters/places/artifacts) via spaCy, and scores each quote by
+  length, keyword richness, and entity density
+- `slug_generator.py` — calls the Claude Haiku API per quote to generate
+  2-3 word hyphenated slugs, then sanitizes and resolves collisions against an
+  in-memory set
+- `generate_slugs.py` — orchestrates the two steps above and writes
+  `data/quotes.sql`
+- `main.py` — a minimal FastAPI app exposing only a `/health` stub; it isn't
+  wired into Docker Compose or run in normal operation
+- `data/` — `famous_quotes.py` (curated list always kept regardless of
+  score), `lotr_scripts.csv` (source dataset), `quotes.sql` (pipeline output)
+- `tests/` — pytest suite covering preprocessing and slug generation
+
+--- 
+
 ## How It Works
 
 1. **Data loading** — reads the [LOTR movie script dataset](https://www.kaggle.com/datasets/paultimothymooney/lord-of-the-rings-data?select=lotr_scripts.csv) (~2,000 quotes) from a csv file
@@ -53,18 +71,3 @@ cd nlp-service
 pytest   # picks up tests/, per pytest.ini
 ```
 
-## Structure
-
-- `nlp_preprocess.py` — cleans raw quote text, extracts keywords and LOTR
-  entities (characters/places/artifacts) via spaCy, and scores each quote by
-  length, keyword richness, and entity density
-- `slug_generator.py` — calls the Claude Haiku API per quote to generate
-  2-3 word hyphenated slugs, then sanitizes and resolves collisions against an
-  in-memory set
-- `generate_slugs.py` — orchestrates the two steps above and writes
-  `data/quotes.sql`
-- `main.py` — a minimal FastAPI app exposing only a `/health` stub; it isn't
-  wired into Docker Compose or run in normal operation
-- `data/` — `famous_quotes.py` (curated list always kept regardless of
-  score), `lotr_scripts.csv` (source dataset), `quotes.sql` (pipeline output)
-- `tests/` — pytest suite covering preprocessing and slug generation
