@@ -4,13 +4,16 @@ A Lord of the Rings themed URL shortener built in Go (Gin) with Redis caching, A
 
 ![Lembas Links Dashboard](images/Lembas-Links.png)
 
+Thanks for checking out my Lembas Links repo! If you have any questions please feel free to get in touch.
+
 ---
 
 ## Table of Contents
-- [Description, Project Objectives, and Future Plans](#description-project-objectives-and-future-plans)
+- [Project Description](#project-description)
   - [Features](#features)
   - [How it Works](#how-it-works)
   - [Project Structure](#project-structure)
+- [Learning Objectives and Future Plans](#learning-objectives-and-future-plans)
 - [Tech Stack](#tech-stack)
 - [Getting Started](#getting-started)
 - [Usage](#usage)
@@ -18,18 +21,13 @@ A Lord of the Rings themed URL shortener built in Go (Gin) with Redis caching, A
 - [Testing](#testing)
 - [NLP Pipeline](#nlp-pipeline)
 - [Environment Variables](#environment-variables)
+- [License](#license)
 
 ---
 
-## Description, Project Objectives, and Future Plans
+## Project Description
 
 As a huge Lord of the Rings fan, I've always been looking for ways to incorporate my love for the fantasy franchise into different aspects of my life (seriously, I talk about it way too much). Thus, when I thought of Lembas Links, it felt like the perfect opportunity; Not only to make a LOTR themed project, but also to learn important backend programming principles and apply skills I've learned from my Natural Language Processing coursework at Boston College.
-
-In building this Lembas Links, I gained hands-on, end-to-end experience designing and implementing a REST API in Go using Gin, a relevant backend framework. This experience really helped me understand how each component of the backend architecture interacts with one another, such as how authentication middleware, rate limiting, and the models layer interact, deepening my understanding of backend security and clean API design. Additionally, I gained valuable insight into important caching principles and practices through my use of Redis and how such technologies can improve performance. Lastly, I also developed practical skills in containerization with Docker Compose, building upon my previous experience using the technology.
-
-Currently, my next goal is to learn AWS by redeploying the project there: first a manual EC2 deployment, then codifying that infrastructure with Terraform, then automating deployments with GitHub Actions, and finally adding observability. 
-
-Thanks for checking out my Lembas Links repo! If you have any questions please feel free to get in touch.
 
 ### Features
 
@@ -55,6 +53,26 @@ Each part of the system has its own README with implementation details beyond wh
 - `api/` — the Go API, including the full endpoint reference — see [`api/README.md`](api/README.md)
 - `frontend/` — the React SPA — see [`frontend/README.md`](frontend/README.md)
 - `nlp-service/` — the offline slug-generation pipeline — see [`nlp-service/README.md`](nlp-service/README.md)
+
+---
+
+## Learning Objectives and Future Plans
+
+In building this Lembas Links, I set out to gain hands-on, end-to-end experience designing and implementing a REST API in Go using Gin, a relevant backend framework. This experience really helped me understand how each component of the backend architecture interacts with one another, such as how authentication middleware, rate limiting, and the models layer interact, deepening my understanding of backend security and clean API design. Additionally, I gained valuable insight into important caching principles and practices through my use of Redis and how such technologies can improve performance. I also developed practical skills in containerization with Docker Compose, building upon my previous experience using the technology.
+
+Lembas Links also acted as a learning ground for me to develop strong agentic coding principles and practices. Though it was initially designed as a standalone API, I restructured Lembas Links with the help of Claude Code, utilizing it as a collaborator that I had to direct rather than follow blindly. This meant drafting highly-descriptive, actionable plans that matched my vision for the project, scoping work before writing it, keeping a project-level `CLAUDE.md` as shared context, and reviewing every change as carefully as I would a teammate's pull request.
+
+Thus, over the course of developing this project, I feel I've been able to foster the following skills:
+
+- **AI-assisted workflows and planning.** I learned that the quality of agentic output depends almost entirely on the quality of the planning that precedes it. I got in the habit of breaking features into explicit phases before any code was written, documenting conventions and architecture in `CLAUDE.md` so context didn't have to be re-explained every session, and keeping changes small enough to actually review. I also learned where *not* to delegate — schema design, rate limiting semantics, and anything security-adjacent were decisions I made myself and then implemented with assistance.
+
+- **Concurrent worktrees and the Chrome MCP server.** Running multiple Git worktrees let me develop independent features in parallel without branch-switching or stashing, which mapped naturally onto running several agent sessions at once. Connecting the Chrome MCP server closed the loop on frontend work: instead of describing a bug in the dashboard, I could have the browser driven directly to reproduce it, read the console and network output, and verify the fix in the running app rather than trusting that the code "looked right."
+
+- **GitHub PR and issue best practices.** I moved away from committing straight to `main` and toward a proper issue-to-PR workflow: issues that state the problem and acceptance criteria rather than the solution, focused branches, and PR descriptions that explain the *why* alongside the *what*. Writing commit messages to a consistent standard (a descriptive subject, then a body covering both the specific changes and the reasoning behind them) made the history genuinely useful to read back through — including for the AI tooling that reads it as context.
+
+- **Testing best practices.** This project pushed me well past "does it compile." I wrote unit tests in Go covering the models layer and slug allocation logic in isolation, integration tests that exercise the handlers and rate-limiting middleware against real Postgres and Redis instances (skipped automatically when `TEST_DATABASE_URL`/`TEST_REDIS_URL` aren't set, so the suite stays runnable anywhere), and an end-to-end smoke test (`make e2e`) that runs curl against the live compose stack to assert the whole backend flow — session key minting, link create/list/stats, ownership isolation between keys, the public redirect, soft-delete, and the session rate limit — behaves correctly over real HTTP rather than as directly-invoked packages. The most valuable lesson was learning which layer a given test belongs to: redirect caching and rate limit counters need real Redis to prove anything, while slug selection logic does not.
+
+Currently, my next goal is to learn AWS by redeploying the project there: first a manual EC2 deployment, then codifying that infrastructure with Terraform, then automating deployments with GitHub Actions, and finally adding observability.
 
 ---
 
@@ -107,7 +125,7 @@ leaving the `postgres:5432` host **and the `?sslmode=disable` suffix** as-is:
 DATABASE_URL=postgres://lembas:your-password-here@postgres:5432/lembas_links?sslmode=disable
 ```
 
-Leave the rest as they are. 
+Leave the rest as they are.
 
 Two things worth knowing:
 - `DATABASE_URL` and `REDIS_URL` are the only variables the API refuses to
@@ -137,7 +155,7 @@ make run
 ### 4. Seed the database (Optional)
 On startup the API runs migrations, then loads the pre-generated LOTR themed
 slug pool (~340 slugs) into the `quotes` table if that table is empty — so a
-normal `make run` needs no seeding step. Check the logs for `Quotes table seeded successfully`, 
+normal `make run` needs no seeding step. Check the logs for `Quotes table seeded successfully`,
 and if it's missing, seed manually against the running Postgres container:
 ```bash
 make seed
