@@ -64,13 +64,13 @@ Lembas Links also acted as a learning ground for me to develop strong agentic co
 
 Thus, over the course of developing this project, I feel I've been able to foster the following skills:
 
-- **AI-assisted workflows and planning.** I learned that the quality of agentic output depends almost entirely on the quality of the planning that precedes it. I got in the habit of breaking features into explicit phases before any code was written, documenting conventions and architecture in `CLAUDE.md` so context didn't have to be re-explained every session, and keeping changes small enough to actually review. I also learned where *not* to delegate — schema design, rate limiting semantics, and anything security-adjacent were decisions I made myself and then implemented with assistance.
-
-- **Concurrent worktrees and the Chrome MCP server.** Running multiple Git worktrees let me develop independent features in parallel without branch-switching or stashing, which mapped naturally onto running several agent sessions at once. Connecting the Chrome MCP server closed the loop on frontend work: instead of describing a bug in the dashboard, I could have the browser driven directly to reproduce it, read the console and network output, and verify the fix in the running app rather than trusting that the code "looked right."
-
-- **GitHub PR and issue best practices.** I moved away from committing straight to `main` and toward a proper issue-to-PR workflow: issues that state the problem and acceptance criteria rather than the solution, focused branches, and PR descriptions that explain the *why* alongside the *what*. Writing commit messages to a consistent standard (a descriptive subject, then a body covering both the specific changes and the reasoning behind them) made the history genuinely useful to read back through — including for the AI tooling that reads it as context.
-
-- **Testing best practices.** This project pushed me well past "does it compile." I wrote unit tests in Go covering the models layer and slug allocation logic in isolation, integration tests that exercise the handlers and rate-limiting middleware against real Postgres and Redis instances (skipped automatically when `TEST_DATABASE_URL`/`TEST_REDIS_URL` aren't set, so the suite stays runnable anywhere), and an end-to-end smoke test (`make e2e`) that runs curl against the live compose stack to assert the whole backend flow — session key minting, link create/list/stats, ownership isolation between keys, the public redirect, soft-delete, and the session rate limit — behaves correctly over real HTTP rather than as directly-invoked packages. The most valuable lesson was learning which layer a given test belongs to: redirect caching and rate limit counters need real Redis to prove anything, while slug selection logic does not.
+- **AI-assisted development** — planning, `CLAUDE.md` creation and customization, and close code reviews
+- **Parallel feature development** across Git worktrees, plus browser-driven debugging through the Chrome MCP server
+- **Issue-to-PR workflow** — scoped branches and detailed commit messages, matching standard industry practice
+- **Testing at every layer** — Go unit tests, integration tests against real Postgres and Redis, and an end-to-end smoke test over live HTTP
+- **System design** — utilizing caching effectively, rate limiting, schema and index modeling, and sliding window authentication expiration
+- **Practical NLP** — spaCy NER and keyword extraction feeding an LLM to generate the slug pool ahead of time, regenerable in a single command
+- **Full-stack delivery** — extending a backend-only service into a typed React SPA, including CORS, anonymous session keys, and a well-defined API contract
 
 Currently, my next goal is to learn AWS by redeploying the project there: first a manual EC2 deployment, then codifying that infrastructure with Terraform, then automating deployments with GitHub Actions, and finally adding observability.
 
