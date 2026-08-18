@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: run stop build test-models test-rate test-handlers test-all e2e seed seed-dev migrate logs generate
+.PHONY: run stop build test-models test-rate test-handlers test-all test-nlp e2e seed seed-dev migrate logs generate
 
 run:
 	docker compose up --build
@@ -29,6 +29,10 @@ test-handlers:
 
 test-all:
 	cd api && go test ./... -v
+
+# Must be called with the virtual environment activated
+test-nlp:
+	cd nlp-service && pytest
 
 # End-to-end smoke test over real HTTP — assumes the stack is up (make run)
 e2e:
