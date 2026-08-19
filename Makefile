@@ -1,7 +1,11 @@
 -include .env
 export
 
-.PHONY: run stop build test-models test-rate test-handlers test-all test-nlp e2e seed seed-dev migrate logs generate
+# swag CLI: prefer it on PATH, else fall back to the default go install location
+SWAG ?= $(shell command -v swag 2>/dev/null || echo $(shell go env GOPATH)/bin/swag)
+SWAGGER_URL ?= http://localhost:$(or $(API_PORT),8080)/swagger/index.html
+
+.PHONY: run stop build test-models test-rate test-handlers test-all test-nlp e2e seed seed-dev migrate logs generate docs docs-open
 
 run:
 	docker compose up --build
@@ -52,6 +56,17 @@ seed-dev:
 
 logs:
 	docker compose logs -f
+
+# Regenerates api/docs/ from the swaggo annotations in the handlers and the
+# general-info block at the top of api/main.go. Needs the swag CLI:
+# go install github.com/swaggo/swag/cmd/swag@latest
+docs:
+	cd api && $(SWAG) init
+
+# Opens the interactive Swagger UI — assumes the stack is up (make run)
+docs-open:
+	@echo "Opening $(SWAGGER_URL)"
+	@command -v open >/dev/null 2>&1 && open "$(SWAGGER_URL)" || xdg-open "$(SWAGGER_URL)"
 
 # Must be called with the virtual environment activated
 generate:
