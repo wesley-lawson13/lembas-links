@@ -212,8 +212,26 @@ Soft delete a Lord of the Rings link. Immediately invalidates Redis cache.
 
 Exceeding limits returns `429 Too Many Requests`.
 
+## API Docs
+
 An interactive Swagger/OpenAPI version of everything above is served at
-`/swagger/index.html` while the stack is running.
+`/swagger/index.html` while the stack is running (start it with `make run`):
+
+```bash
+make docs-open      # opens http://localhost:$API_PORT/swagger/index.html
+```
+
+The spec is generated from the swaggo annotations on the handlers plus the
+general-info block at the top of `main.go` — `docs/` is build output, not
+hand-maintained. After changing either, regenerate it:
+
+```bash
+make docs           # cd api && swag init
+```
+
+That needs the swag CLI (`go install github.com/swaggo/swag/cmd/swag@latest`).
+`docs/` is committed, so a fresh clone serves the current spec without running
+anything.
 
 ## Testing
 

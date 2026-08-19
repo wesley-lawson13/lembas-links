@@ -225,6 +225,13 @@ Protected endpoints require an API key in the `Authorization` header, optionally
 
 For the full endpoint contract — every route with its request/response shapes and status codes — see [`api/README.md`](api/README.md#api-reference), or browse the interactive Swagger UI at `/swagger/index.html` while the stack is running.
 
+```bash
+make docs-open  # open the Swagger UI in your browser (stack must be running)
+make docs       # regenerate api/docs/ after changing the API
+```
+
+For the swag CLI prerequisite and what `make docs` reads from, see [`api/README.md`](api/README.md#api-docs).
+
 ---
 
 ## Testing

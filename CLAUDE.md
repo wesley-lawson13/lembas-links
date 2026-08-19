@@ -22,10 +22,14 @@ make migrate    # Run database migrations via golang-migrate
 make seed       # Load pre-generated LOTR slug pool into Postgres
 make seed-dev   # Insert a test API key for local development
 make logs       # Stream Docker Compose logs
+make docs       # Regenerate Swagger docs into api/docs/ (cd api && swag init)
+make docs-open  # Open the Swagger UI at /swagger/index.html in a browser
 make generate   # Re-run the NLP slug generation pipeline
 ```
 
 The four `test-*` targets run integration cases (`test-models` needs Postgres; `test-rate` and `test-handlers` need both Postgres and Redis) that are skipped per-case unless `TEST_DATABASE_URL`/`TEST_REDIS_URL` are set — so to actually exercise them rather than skip, the dependencies need to be running first (`make run`, or just `docker compose up postgres redis`), with those two env vars pointed at localhost.
+
+`make docs` needs the swag CLI (`go install github.com/swaggo/swag/cmd/swag@latest`); it rewrites the generated `api/docs/` from the annotations on the handlers and the general-info block at the top of `api/main.go`, so run it after changing either. `make docs-open` assumes the stack is already up (`make run`) and points at `http://localhost:$API_PORT/swagger/index.html` (8080 by default).
 
 Local setup flow: `cp .env.example .env` → fill in values → `cp frontend/.env.example frontend/.env` → `make run` → `make seed` → `make seed-dev`
 
