@@ -11,8 +11,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -60,6 +62,13 @@ func main() {
 	// set up router
 	r := gin.Default()
 
+	// nginx is the only proxy in front of the API (both on the same host in
+	// prod), so trusting anything broader lets a client spoof X-Forwarded-For
+	// and defeat the per-IP rate limit and click analytics.
+	if err := r.SetTrustedProxies([]string{"127.0.0.1"}); err != nil {
+		log.Fatalf("Failed to set trusted proxies: %v", err)
+	}
+
 	// CORS must run before any route group so preflight OPTIONS requests
 	// never hit RateLimit/APIKeyAuth/SessionRateLimit.
 	// gin-contrib/cors panics on an empty AllowOrigins list, so skip
@@ -84,12 +93,27 @@ func main() {
 
 	// public routes
 	r.GET("/health", func(c *gin.Context) {
-		// health check
-		c.JSON(200, gin.H{
-			"status":   "ok",
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+
+		var dbErr, cacheErr error
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() { defer wg.Done(); dbErr = pool.PingContext(ctx) }()
+		go func() { defer wg.Done(); cacheErr = redis.Ping(ctx).Err() }()
+		wg.Wait()
+
+		healthy := dbErr == nil && cacheErr == nil
+		status, httpStatus := "ok", 200
+		if !healthy {
+			status, httpStatus = "degraded", 503
+		}
+
+		c.JSON(httpStatus, gin.H{
+			"status":   status,
 			"service":  "lembas-links",
-			"database": "connected",
-			"cache":    "connected",
+			"database": connectionStatus(dbErr),
+			"cache":    connectionStatus(cacheErr),
 		})
 	})
 
@@ -116,4 +140,13 @@ func main() {
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %s", err)
 	}
+}
+
+// connectionStatus renders a dependency's ping error as the /health response
+// string. Called by the /health handler for both the Postgres pool and Redis.
+func connectionStatus(err error) string {
+	if err != nil {
+		return "disconnected"
+	}
+	return "connected"
 }

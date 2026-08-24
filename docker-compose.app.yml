@@ -1,0 +1,23 @@
+# Runs on lembas-app. Both services use host networking so nginx reaches the
+# API over the real loopback interface (127.0.0.1) rather than a docker0
+# bridge gateway IP — required for SetTrustedProxies(["127.0.0.1"]) in
+# api/main.go to see the correct peer address. The security boundary is
+# sg-api (no inbound rules), not the loopback binding.
+#
+# The env file MUST be named .env (copy .env.app.example -> .env on this box)
+# and MUST live next to this compose file — see docker-compose.data.yml for
+# why (Compose only auto-loads a file named exactly ".env").
+services:
+  api:
+    image: lembas-links-api:latest
+    network_mode: host
+    env_file:
+      - .env
+    restart: unless-stopped
+
+  frontend:
+    image: lembas-links-frontend:latest
+    network_mode: host
+    depends_on:
+      - api
+    restart: unless-stopped
