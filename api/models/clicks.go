@@ -89,7 +89,7 @@ func (s *URLStore) GetClicks(slug string, limit int) ([]Click, error) {
 	}
 	defer rows.Close()
 
-	var clicks []Click
+	clicks := []Click{}
 	for rows.Next() {
 
 		var click Click

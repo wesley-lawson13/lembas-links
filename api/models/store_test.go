@@ -162,6 +162,29 @@ func TestRecordAndGetClicks(t *testing.T) {
 	}
 }
 
+// TestGetClicksEmptySlice confirms GetClicks returns a non-nil empty slice
+// (not nil) for a slug with zero clicks, so the JSON response field is `[]`
+// rather than `null` — a nil slice crashes frontend code that assumes
+// recent_clicks is always an array.
+func TestGetClicksEmptySlice(t *testing.T) {
+	db := setupTestDB(t)
+	store := NewURLStore(db)
+	cleanupURLs(t, db, "test-empty-clicks-key")
+
+	slug := seedURL(t, db, "https://example.com", "test-empty-clicks-key", time.Now().Add(30*24*time.Hour))
+
+	clicks, err := store.GetClicks(slug, 10)
+	if err != nil {
+		t.Fatalf("GetClicks failed: %v", err)
+	}
+	if clicks == nil {
+		t.Error("expected non-nil empty slice, got nil")
+	}
+	if len(clicks) != 0 {
+		t.Errorf("expected 0 clicks got %d", len(clicks))
+	}
+}
+
 // TestGetDailyClicks verifies GetDailyClicks returns exactly 7 zero-filled
 // per-day totals, oldest to newest, counting only clicks inside the window.
 func TestGetDailyClicks(t *testing.T) {
