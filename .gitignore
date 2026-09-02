@@ -47,3 +47,7 @@ __pycache__/
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Claude Code additional file output
+.claude/learning
+.claude/decisions
