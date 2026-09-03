@@ -31,7 +31,7 @@ The four `test-*` targets run integration cases (`test-models` needs Postgres; `
 
 `make docs` needs the swag CLI (`go install github.com/swaggo/swag/cmd/swag@latest`); it rewrites the generated `api/docs/` from the annotations on the handlers and the general-info block at the top of `api/main.go`, so run it after changing either. `make docs-open` assumes the stack is already up (`make run`) and points at `http://localhost:$API_PORT/swagger/index.html` (8080 by default).
 
-Local setup flow: `cp .env.example .env` → fill in values → `cp frontend/.env.example frontend/.env` → `make run` → `make seed` → `make seed-dev`
+Local setup flow: `cp .env.local.example .env` → fill in values → `cp frontend/.env.example frontend/.env` → `make run` → `make seed` → `make seed-dev`
 
 Frontend dev outside Docker: `cd frontend && npm install && npm run dev` (Vite dev server on `http://localhost:5173`; `npm run build` type-checks and bundles).
 
@@ -107,7 +107,9 @@ Before writing a new function, write a 1-2 sentence description of what it does 
 
 ## Environment Variables
 
-See `.env.example` for the full list. Key variables:
+See `.env.local.example` for the full list (local Docker Compose dev). Production deploys use
+`.env.app.example` / `.env.data.example` instead — see the README's Deployment section. Key
+variables:
 - `DATABASE_URL` / `REDIS_URL` — Connection strings
 - `BASE_URL` — The domain used to construct short URLs
 - `IP_RATE_LIMIT`, `KEY_RATE_LIMIT`, `DEFAULT_TTL_DAYS` — Tunable defaults

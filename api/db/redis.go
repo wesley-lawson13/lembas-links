@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"log"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/wesley-lawson13/lembas-links/config"
@@ -16,10 +17,19 @@ func NewRedisClient(cfg *config.Config) *redis.Client {
 	}
 	client := redis.NewClient(opts)
 
-	if err := client.Ping(context.Background()).Err(); err != nil {
-		log.Fatalf("Failed to connect to Redis: %v\n", err)
+	// connection retry ping — on separate hosts the app box can boot before
+	// the data box is reachable, so a single ping would crash-loop it.
+	for i := range 10 {
+
+		if err := client.Ping(context.Background()).Err(); err == nil {
+			log.Println("Successfully connected to Redis.")
+			return client
+		} else {
+			log.Printf("Attempt %d/10 failed: %v\n", i+1, err)
+		}
+		time.Sleep(2 * time.Second)
 	}
 
-	log.Println("Successfully connected to Redis.")
-	return client
+	log.Fatal("Could not connect to Redis.")
+	return nil
 }

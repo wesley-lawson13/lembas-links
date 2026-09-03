@@ -69,3 +69,12 @@ type SessionResponse struct {
 type ErrorResponse struct {
 	Error string `json:"error" example:"slug not found"`
 }
+
+// HealthResponse is the response body for the readiness check, reporting
+// each dependency's live status.
+type HealthResponse struct {
+	Status   string `json:"status"   example:"ok"`
+	Service  string `json:"service"  example:"lembas-links"`
+	Database string `json:"database" example:"connected"`
+	Cache    string `json:"cache"    example:"connected"`
+}

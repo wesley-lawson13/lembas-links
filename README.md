@@ -15,6 +15,7 @@ Thanks for checking out my Lembas Links repo! If you have any questions please f
   - [Project Structure](#project-structure)
 - [Learning Objectives and Future Plans](#learning-objectives-and-future-plans)
 - [Tech Stack](#tech-stack)
+- [Deployment](#deployment)
 - [Getting Started](#getting-started)
 - [Usage](#usage)
 - [API Reference](#api-reference)
@@ -58,7 +59,7 @@ Each part of the system has its own README with implementation details beyond wh
 
 ## Learning Objectives and Future Plans
 
-In building this Lembas Links, I set out to gain hands-on, end-to-end experience designing and implementing a REST API in Go using Gin, a relevant backend framework. This experience really helped me understand how each component of the backend architecture interacts with one another, such as how authentication middleware, rate limiting, and the models layer interact, deepening my understanding of backend security and clean API design. Additionally, I gained valuable insight into important caching principles and practices through my use of Redis and how such technologies can improve performance. I also developed practical skills in containerization with Docker Compose, building upon my previous experience using the technology.
+In building this Lembas Links, I set out to gain hands-on, end-to-end experience designing and implementing a REST API in Go using Gin, a relevant backend framework. This experience really helped me understand how each component of the backend architecture interacts with one another, such as how authentication middleware, rate limiting, and the models layer interact, deepening my understanding of backend security and clean API design. Additionally, I gained valuable insight into important caching principles and practices through my use of Redis and how such technologies can improve performance. I also developed practical skills in containerization with Docker Compose, building upon my previous experience using the technology, and then carried that further into deploying the containerized stack onto real cloud infrastructure on AWS.
 
 Lembas Links also acted as a learning ground for me to develop strong agentic coding principles and practices. Though it was initially designed as a standalone API, I restructured Lembas Links with the help of Claude Code, utilizing it as a collaborator that I had to direct rather than follow blindly. This meant drafting highly-descriptive, actionable plans that matched my vision for the project, scoping work before writing it, keeping a project-level `CLAUDE.md` as shared context, and reviewing every change as carefully as I would a teammate's pull request.
 
@@ -71,8 +72,9 @@ Thus, over the course of developing this project, I feel I've been able to foste
 - **System design** — utilizing caching effectively, rate limiting, schema and index modeling, and sliding window authentication expiration
 - **Practical NLP** — spaCy NER and keyword extraction feeding an LLM to generate the slug pool ahead of time, regenerable in a single command
 - **Full-stack delivery** — extending a backend-only service into a typed React SPA, including CORS, anonymous session keys, and a well-defined API contract
+- **AWS networking fundamentals** — VPCs, subnets, route tables, and internet gateways, plus identity-based security group rules (security groups as role labels referenced by identity rather than per-instance firewalls, including a group with zero inbound rules that exists purely so other groups have something to reference)
 
-Currently, my next goal is to learn AWS by redeploying the project there: first a manual EC2 deployment, then codifying that infrastructure with Terraform, then automating deployments with GitHub Actions, and finally adding observability.
+Having deployed this project on dual EC2 instances on a custom VPC, my next goal is to learn Terraform and codify the infrastructure using the IaC framework, and automate deployments using Github Actions. Lastly, I would like to add observability, although I may return to this checkpoint somewhere further down the line. 
 
 ---
 
@@ -87,6 +89,84 @@ Currently, my next goal is to learn AWS by redeploying the project there: first 
 | NLP Pipeline | Python 3.11, spaCy, pandas, rapidfuzz, Claude Haiku API |
 | Containerization | Docker, Docker Compose |
 | Migrations | golang-migrate |
+
+---
+
+## Deployment
+
+Lembas Links runs live on AWS at **http://54.164.172.135** — a manual, two-instance EC2
+deployment behind a custom VPC. This is Phase 1 of a three-phase roadmap (manual EC2 →
+Terraform → GitHub Actions); see [Learning Objectives](#learning-objectives-and-future-plans)
+for what's next.
+
+### Architecture
+
+![Deployment topology — custom VPC with two instances in public subnet A, subnet B reserved empty](images/deployment-topology.png)
+
+The route table looks like this: `10.0.0.0/16 → local` represents the VPC, and the 
+`0.0.0.0/0 → internet gateway` points `subnet-public-a` towards the internet, essentially making
+it public. Both instances sit in that same public subnet, but only `lembas-app` is actually
+reachable from the internet; the security groups below enforce the whether an instance is publically
+accessible or not. `lembas-app` carries `sg-web` + `sg-ssh` + `sg-api`; `lembas-data` carries
+`sg-ssh` + `sg-postgres` + `sg-redis`, and its Postgres data lives on a separate 10 GB gp3 EBS
+volume so it survives instance termination. `subnet-public-b` stays empty on purpose, reserved 
+for a future ALB / RDS subnet group expansion.
+
+### Security groups
+
+| Security group | Inbound rule | Attached to |
+|---|---|---|
+| `sg-web` | 80, 443 ← `0.0.0.0/0` | app |
+| `sg-ssh` | 22 ← operator IP | app, data |
+| `sg-api` | *(none)* | app |
+| `sg-postgres` | 5432 ← source: `sg-api` | data |
+| `sg-redis` | 6379 ← source: `sg-api` | data |
+
+`sg-api` was designed such that it has zero inbound rules. Instead, nginx reaches the API over 
+`127.0.0.1`, so it needs no ingress of its own. The group exists purely as an identity label so 
+`sg-postgres` and `sg-redis` have something to reference. Specifically, those two rules admit 
+traffic from *any instance under `sg-api`*, rather than from a specific IP. 
+
+### One origin, no CORS
+
+nginx on `lembas-app` serves the built SPA and reverse-proxies API paths to the Go API on
+`127.0.0.1:8080` such that the browser only talks to one address. `GET /:slug` sits at the root
+and would otherwise collide with the SPA's own `/` and `/stats/:slug` routes, however, nginx's
+longest-prefix location matching resolves that cleanly with the SPA's routes handled first and
+everything else falling through to the API. Because it's all one origin, `CORS_ALLOWED_ORIGINS`
+is left empty in production.
+
+### Production environment values
+
+These differ from local dev (`.env.local.example`):
+
+| Variable | Local | Production |
+|---|---|---|
+| `DATABASE_URL` / `REDIS_URL` | `postgres`/`redis` (Compose hostnames) | `lembas-data`'s private IP, with randomnly generated passwords |
+| `BASE_URL` | `http://localhost:8080` | the app box's Elastic IP |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | *(empty — same-origin deploy)* |
+| `GIN_MODE` | unset (debug) | `release` |
+
+Full templates are provided in `.env.app.example` (lembas-app) and `.env.data.example` (lembas-data).
+
+### Deploy procedure
+
+The instances, both using `t4g.micro` (Graviton/arm64), we're set up in the following manner: 
+
+1. **Bootstrapped both boxes**: installed Docker + the Compose plugin, added 2 GB of swap.
+2. **`lembas-data`**: attached and mounted the separate EBS volume at
+   `/var/lib/postgresql/data`, copied over `docker-compose.data.yml` + `.env.data.example` →
+   `.env`, then `docker compose -f docker-compose.data.yml up -d`.
+3. **Built and shipped images from the Mac**: 
+   ```bash
+   docker build -t lembas-links-api:latest -f Dockerfile .
+   docker build -t lembas-links-frontend:latest \
+     --build-arg VITE_API_BASE_URL="" -f frontend/Dockerfile.prod frontend
+   docker save lembas-links-api:latest lembas-links-frontend:latest \
+     | gzip | ssh ec2-user@<app-eip> 'gunzip | docker load'
+   ```
+4. **`lembas-app`**: copied over `docker-compose.app.yml` + `.env.app.example` → `.env`, then
+   `docker compose -f docker-compose.app.yml up -d`.
 
 ---
 
@@ -105,10 +185,10 @@ cd lembas-links
 
 ### 2. Set up environment variables
 ```bash
-cp .env.example .env
+cp .env.local.example .env
 ```
 
-`.env.example` already ships working defaults for everything else, so there are
+`.env.local.example` already ships working defaults for everything else, so there are
 only **three values to fill in** — the Postgres credentials. Any values you
 like; they create the database on first boot:
 

@@ -15,6 +15,32 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/health": {
+            "get": {
+                "description": "Pings Postgres and Redis in parallel (2s timeout) and reports each dependency's live status.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Readiness check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.HealthResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "one or more dependencies unreachable",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.HealthResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/links": {
             "get": {
                 "security": [
@@ -310,6 +336,27 @@ const docTemplate = `{
                 }
             }
         },
+        "handlers.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "cache": {
+                    "type": "string",
+                    "example": "connected"
+                },
+                "database": {
+                    "type": "string",
+                    "example": "connected"
+                },
+                "service": {
+                    "type": "string",
+                    "example": "lembas-links"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "ok"
+                }
+            }
+        },
         "handlers.LinkSummary": {
             "type": "object",
             "properties": {
@@ -417,7 +464,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "lembas-links-production.up.railway.app",
+	Host:             "54.164.172.135",
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "Lembas Links API",

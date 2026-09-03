@@ -1,0 +1,41 @@
+# Runs on lembas-data. Postgres/Redis publish on the box's private IP only
+# (never 0.0.0.0) — sg-postgres/sg-redis already restrict inbound to sg-api,
+# but binding to a specific address is a second, host-level backstop against
+# a security-group misconfiguration.
+#
+# The env file MUST be named .env (copy .env.data.example -> .env on this
+# box) and MUST live next to this compose file. Compose only auto-loads a
+# file named exactly ".env" for ${VAR} substitution in the YAML below
+# (PRIVATE_IP, REDIS_PASSWORD) — the `env_file:` key on a service only
+# injects vars into that container's runtime env, it does NOT feed YAML
+# interpolation, so a differently-named file here silently resolves
+# ${PRIVATE_IP} to an empty string and republishes on 0.0.0.0.
+#
+# Postgres data lives on the attached gp3 EBS volume (mounted on the host at
+# /var/lib/postgresql/data, outside the root volume), not the container's
+# writable layer — it must survive instance termination.
+services:
+  postgres:
+    image: postgres:15
+    env_file:
+      - .env
+    ports:
+      - "${PRIVATE_IP}:5432:5432"
+    volumes:
+      - /var/lib/postgresql/data:/var/lib/postgresql/data
+      - ./db:/db
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    env_file:
+      - .env
+    ports:
+      - "${PRIVATE_IP}:6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:

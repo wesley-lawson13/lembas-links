@@ -1,0 +1,8 @@
+# The root Dockerfile only needs api/, db/migrations/, and db/seeds/ — everything
+# else here (frontend, its node_modules, the NLP pipeline, git history) would
+# otherwise ship as build context on every `docker compose build api`.
+.git
+frontend
+nlp-service
+images
+*.md

@@ -52,6 +52,21 @@ definitions:
         example: slug not found
         type: string
     type: object
+  handlers.HealthResponse:
+    properties:
+      cache:
+        example: connected
+        type: string
+      database:
+        example: connected
+        type: string
+      service:
+        example: lembas-links
+        type: string
+      status:
+        example: ok
+        type: string
+    type: object
   handlers.LinkSummary:
     properties:
       click_count:
@@ -116,7 +131,7 @@ definitions:
         example: one-ring-to-rule
         type: string
     type: object
-host: lembas-links-production.up.railway.app
+host: 54.164.172.135
 info:
   contact: {}
   description: A Lord of the Rings-themed URL shortener. Authenticated routes require
@@ -152,6 +167,24 @@ paths:
       summary: Redirect to original URL
       tags:
       - redirect
+  /health:
+    get:
+      description: Pings Postgres and Redis in parallel (2s timeout) and reports each
+        dependency's live status.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/handlers.HealthResponse'
+        "503":
+          description: one or more dependencies unreachable
+          schema:
+            $ref: '#/definitions/handlers.HealthResponse'
+      summary: Readiness check
+      tags:
+      - health
   /links:
     get:
       description: Returns a summary of every non-deleted link owned by the authenticated

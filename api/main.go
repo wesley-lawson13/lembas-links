@@ -1,7 +1,7 @@
 // @title           Lembas Links API
 // @version         1.0
 // @description     A Lord of the Rings-themed URL shortener. Authenticated routes require an API key passed as a Bearer token in the Authorization header.
-// @host            lembas-links-production.up.railway.app
+// @host            54.164.172.135
 // @BasePath        /
 //
 // @securityDefinitions.apikey ApiKeyAuth
@@ -60,6 +60,13 @@ func main() {
 	// set up router
 	r := gin.Default()
 
+	// nginx is the only proxy in front of the API (both on the same host in
+	// prod), so trusting anything broader lets a client spoof X-Forwarded-For
+	// and defeat the per-IP rate limit and click analytics.
+	if err := r.SetTrustedProxies([]string{"127.0.0.1"}); err != nil {
+		log.Fatalf("Failed to set trusted proxies: %v", err)
+	}
+
 	// CORS must run before any route group so preflight OPTIONS requests
 	// never hit RateLimit/APIKeyAuth/SessionRateLimit.
 	// gin-contrib/cors panics on an empty AllowOrigins list, so skip
@@ -76,22 +83,15 @@ func main() {
 		}))
 	}
 
-	// get the link and session handlers for routes
+	// get the link, session, and health handlers for routes
 	linkHandler := handlers.NewLinkHandler(store, redis, cfg)
 	sessionHandler := handlers.NewSessionHandler(store, cfg)
+	healthHandler := handlers.NewHealthHandler(pool, redis)
 
 	// ---ROUTES---
 
 	// public routes
-	r.GET("/health", func(c *gin.Context) {
-		// health check
-		c.JSON(200, gin.H{
-			"status":   "ok",
-			"service":  "lembas-links",
-			"database": "connected",
-			"cache":    "connected",
-		})
-	})
+	r.GET("/health", healthHandler.Check)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 

@@ -9,7 +9,7 @@ import type {
   StatsResponse,
 } from './types'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL as string
+const API_BASE = (import.meta.env.VITE_API_BASE_URL as string) ?? ''
 const KEY_STORAGE = 'lembas_api_key'
 
 // ApiError carries the HTTP status alongside the server's {"error": "..."} message
