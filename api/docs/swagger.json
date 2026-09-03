@@ -6,9 +6,35 @@
         "contact": {},
         "version": "1.0"
     },
-    "host": "lembas-links-production.up.railway.app",
+    "host": "54.164.172.135",
     "basePath": "/",
     "paths": {
+        "/health": {
+            "get": {
+                "description": "Pings Postgres and Redis in parallel (2s timeout) and reports each dependency's live status.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Readiness check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.HealthResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "one or more dependencies unreachable",
+                        "schema": {
+                            "$ref": "#/definitions/handlers.HealthResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/links": {
             "get": {
                 "security": [
@@ -301,6 +327,27 @@
                 "error": {
                     "type": "string",
                     "example": "slug not found"
+                }
+            }
+        },
+        "handlers.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "cache": {
+                    "type": "string",
+                    "example": "connected"
+                },
+                "database": {
+                    "type": "string",
+                    "example": "connected"
+                },
+                "service": {
+                    "type": "string",
+                    "example": "lembas-links"
+                },
+                "status": {
+                    "type": "string",
+                    "example": "ok"
                 }
             }
         },

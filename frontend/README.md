@@ -1,8 +1,10 @@
 # Lembas Links — Frontend
 
 Vite + React + TypeScript SPA for the Lembas Links URL shortener. Talks to the
-Go API over CORS; an anonymous API key is minted silently via `POST /session`
-on first visit and kept in localStorage (see `src/api.ts`).
+Go API — over CORS in local dev, same-origin via an nginx reverse proxy in
+production (see the root README's [Deployment](../README.md#deployment)
+section) — with an anonymous API key minted silently via `POST /session` on
+first visit and kept in localStorage (see `src/api.ts`).
 
 Or via Docker Compose from the repo root: `make run`.
 

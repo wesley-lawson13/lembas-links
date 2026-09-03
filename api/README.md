@@ -10,8 +10,10 @@ and running the whole stack, see the root [`README.md`](../README.md#getting-sta
 
 - `config/` — `Config` struct + `Load()`, reads all env vars with defaults,
   fatals if `DATABASE_URL`/`REDIS_URL` are missing
-- `db/` — Postgres pool (`db.go`, 25 max open connections, retries on
-  startup) and Redis client (`redis.go`) initialization
+- `db/` — Postgres pool and Redis client initialization (`db.go`, `redis.go`,
+  25 max open Postgres connections), both with startup retry — the API and
+  data stores can live on separate hosts in production, so a dependency may
+  not be reachable the instant the app boots
 - `migrate/` — runs `golang-migrate` migrations and seeds the `quotes` table
   on first startup if it's empty
 - `models/` — `URLStore` wrapping `*sql.DB`, the shared data-access layer;
@@ -24,7 +26,9 @@ and running the whole stack, see the root [`README.md`](../README.md#getting-sta
 - `middleware/` — `auth.go` (API key auth), `bearer.go` (shared bearer-token
   extraction), `rate.go` (IP- and key-based rate limiting)
 - `docs/` — generated Swagger/OpenAPI output (`swag init`), not hand-maintained
-- `main.go` — wires config → DB/Redis → migrations → routes → server
+- `main.go` — wires config → DB/Redis → migrations → routes → server; trusts
+  only `127.0.0.1` as a proxy (nginx sits in front in production) so
+  `ClientIP()`-based rate limiting can't be spoofed via `X-Forwarded-For`
 
 Environment variables for the API are documented in the root
 [`README.md`](../README.md#environment-variables) — they live in the root
@@ -44,14 +48,24 @@ Get a key via `make seed-dev`, `POST /session` below, or by opening the frontend
 ### Endpoints
 
 #### `GET /health` — Public
-Liveness check. Returns a static `200` payload (the field values are constants, not live probes of Postgres/Redis).
+Readiness check. Pings Postgres and Redis in parallel (2s timeout) and reports each dependency's live status.
 
-**Response `200`:**
+**Response `200`** (both dependencies reachable):
 ```json
 {
     "status": "ok",
     "service": "lembas-links",
     "database": "connected",
+    "cache": "connected"
+}
+```
+
+**Response `503`** (either dependency unreachable):
+```json
+{
+    "status": "degraded",
+    "service": "lembas-links",
+    "database": "disconnected",
     "cache": "connected"
 }
 ```

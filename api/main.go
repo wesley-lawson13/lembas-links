@@ -1,7 +1,7 @@
 // @title           Lembas Links API
 // @version         1.0
 // @description     A Lord of the Rings-themed URL shortener. Authenticated routes require an API key passed as a Bearer token in the Authorization header.
-// @host            lembas-links-production.up.railway.app
+// @host            54.164.172.135
 // @BasePath        /
 //
 // @securityDefinitions.apikey ApiKeyAuth
@@ -11,10 +11,8 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
-	"sync"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -85,37 +83,15 @@ func main() {
 		}))
 	}
 
-	// get the link and session handlers for routes
+	// get the link, session, and health handlers for routes
 	linkHandler := handlers.NewLinkHandler(store, redis, cfg)
 	sessionHandler := handlers.NewSessionHandler(store, cfg)
+	healthHandler := handlers.NewHealthHandler(pool, redis)
 
 	// ---ROUTES---
 
 	// public routes
-	r.GET("/health", func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
-		defer cancel()
-
-		var dbErr, cacheErr error
-		var wg sync.WaitGroup
-		wg.Add(2)
-		go func() { defer wg.Done(); dbErr = pool.PingContext(ctx) }()
-		go func() { defer wg.Done(); cacheErr = redis.Ping(ctx).Err() }()
-		wg.Wait()
-
-		healthy := dbErr == nil && cacheErr == nil
-		status, httpStatus := "ok", 200
-		if !healthy {
-			status, httpStatus = "degraded", 503
-		}
-
-		c.JSON(httpStatus, gin.H{
-			"status":   status,
-			"service":  "lembas-links",
-			"database": connectionStatus(dbErr),
-			"cache":    connectionStatus(cacheErr),
-		})
-	})
+	r.GET("/health", healthHandler.Check)
 
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -140,13 +116,4 @@ func main() {
 	if err := r.Run(addr); err != nil {
 		log.Fatalf("Failed to start server: %s", err)
 	}
-}
-
-// connectionStatus renders a dependency's ping error as the /health response
-// string. Called by the /health handler for both the Postgres pool and Redis.
-func connectionStatus(err error) string {
-	if err != nil {
-		return "disconnected"
-	}
-	return "connected"
 }
